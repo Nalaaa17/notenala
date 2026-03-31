@@ -194,7 +194,7 @@ export default function LandingPage() {
         {!searchQuery && (
           <>
             <section className="mb-8 mt-4 text-center">
-              <h2 className="text-3xl font-extrabold mb-2 text-white">Tugas Semester 5</h2>
+              <h2 className="text-3xl font-extrabold mb-2 text-white">Tugas Tugas Mendatang</h2>
               <p className="text-gray-400 text-lg">Jangan Ditunda tunda selesaikan yang mudah dulu :D</p>
             </section>
 
