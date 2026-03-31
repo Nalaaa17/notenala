@@ -37,20 +37,31 @@ export default function LandingPage() {
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
 
   // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
+  // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
   useEffect(() => {
     const checkUserAndFetchData = async () => {
-      // Cek apakah ada user yang sedang login
+      // 1. Tambahkan Listener untuk mendeteksi event PASSWORD_RECOVERY
+      supabase.auth.onAuthStateChange(async (event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          window.location.href = "/reset-password";
+          return;
+        }
+      });
+
+      // 2. Cek apakah ada user yang sedang login
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        // Jika belum login, paksa pindah ke halaman login
-        window.location.href = "/login";
+        // Cek apakah URL mengandung link recovery (agar tidak mental ke login saat proses reset)
+        if (!window.location.hash.includes('type=recovery')) {
+          window.location.href = "/login";
+        }
         return;
       }
 
       setUser(user);
 
-      // Ambil data tugas. (RLS di database otomatis hanya memberikan data milik user ini)
+      // 3. Ambil data tugas
       setIsLoading(true);
       const { data, error } = await supabase
         .from('tasks')
@@ -63,7 +74,6 @@ export default function LandingPage() {
 
     checkUserAndFetchData();
   }, []);
-
   // --- FUNGSI LOGOUT ---
   const handleLogout = async () => {
     await supabase.auth.signOut();
