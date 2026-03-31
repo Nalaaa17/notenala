@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next"; // Tambahkan Viewport di sini
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -12,9 +12,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 1. PINDAHKAN THEME COLOR KE SINI (Aturan Baru Next.js)
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+};
+
+// 2. METADATA TETAP DI SINI (Tanpa themeColor)
 export const metadata: Metadata = {
-  title: "Note Nala",
+  title: "NoteNala",
   description: "Platform simpan tugas dan catatan praktis",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NoteNala",
+  },
 };
 
 export default function RootLayout({
@@ -24,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
