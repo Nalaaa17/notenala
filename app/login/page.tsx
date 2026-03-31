@@ -51,27 +51,18 @@ export default function LoginPage() {
         }
     };
 
-    const handleResetPassword = async () => {
-        if (!email) {
-            setErrorMsg("Masukkan alamat email kamu terlebih dahulu di kolom email.");
-            return;
-        }
-
-        setIsLoading(true);
-        setErrorMsg(null);
-        setSuccessMsg(null);
-
-        // Meminta Supabase mengirimkan email reset password
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`, // Opsional: arahkan ke halaman ubah password nanti
+            // PENTING: Gunakan domain asli kamu dan arahkan ke path /reset-password
+            redirectTo: 'https://nala.my.id/reset-password',
         });
 
         if (error) {
             setErrorMsg(error.message);
         } else {
-            setSuccessMsg("Instruksi untuk mengatur ulang password telah dikirim ke email kamu.");
+            setSuccessMsg("Link reset password telah dikirim ke email kamu!");
         }
-        setIsLoading(false);
     };
 
     return (
