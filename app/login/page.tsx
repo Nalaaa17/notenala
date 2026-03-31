@@ -51,18 +51,30 @@ export default function LoginPage() {
         }
     };
 
-    const handleResetPassword = async (e) => {
+    // PERBAIKAN: Menambahkan tipe React.FormEvent agar tidak error build
+    const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!email) {
+            setErrorMsg("Masukkan email kamu terlebih dahulu di kotak input di atas.");
+            return;
+        }
+
+        setIsLoading(true);
+        setErrorMsg(null);
+        setSuccessMsg(null);
+
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            // PENTING: Gunakan domain asli kamu dan arahkan ke path /reset-password
+            // Memastikan user diarahkan ke halaman reset-password setelah klik link di email
             redirectTo: 'https://nala.my.id/reset-password',
         });
 
         if (error) {
             setErrorMsg(error.message);
         } else {
-            setSuccessMsg("Link reset password telah dikirim ke email kamu!");
+            setSuccessMsg("Link reset password telah dikirim! Silakan cek email kamu.");
         }
+        setIsLoading(false);
     };
 
     return (
@@ -139,7 +151,7 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
                                 className="w-full pl-11 pr-12 py-3 bg-gray-900 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition"
-                                required
+                                required={!successMsg}
                             />
                             <button
                                 type="button"
