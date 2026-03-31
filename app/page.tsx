@@ -1,7 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2, Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search } from 'lucide-react';
+import { supabase } from '../lib/supabase'; // Sesuaikan path ini jika perlu
+import {
+  PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2,
+  Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search, User, LogOut
+} from 'lucide-react';
 
 // Struktur data (menyesuaikan kolom di database)
 interface Task {
@@ -10,6 +13,7 @@ interface Task {
   note: string;
   due_date: string;
   completed: boolean;
+  user_id?: string; // Menambahkan opsional user_id
 }
 
 export default function LandingPage() {
@@ -21,27 +25,49 @@ export default function LandingPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // STATE BARU: Untuk menyimpan teks pencarian
+  // STATE BARU: Autentikasi & UI Profil
+  const [user, setUser] = useState<any>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // State untuk menyimpan teks pencarian
   const [searchQuery, setSearchQuery] = useState("");
 
   // State untuk Custom Modal Hapus
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
 
-  // --- AMBIL DATA DARI DATABASE SAAT DIBUKA ---
+  // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
   useEffect(() => {
-    fetchTasks();
+    const checkUserAndFetchData = async () => {
+      // Cek apakah ada user yang sedang login
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        // Jika belum login, paksa pindah ke halaman login
+        window.location.href = "/login";
+        return;
+      }
+
+      setUser(user);
+
+      // Ambil data tugas. (RLS di database otomatis hanya memberikan data milik user ini)
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (!error && data) setTasks(data);
+      setIsLoading(false);
+    };
+
+    checkUserAndFetchData();
   }, []);
 
-  const fetchTasks = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .order('id', { ascending: false });
-
-    if (!error && data) setTasks(data);
-    setIsLoading(false);
+  // --- FUNGSI LOGOUT ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   // Fungsi menghitung sisa hari
@@ -64,7 +90,7 @@ export default function LandingPage() {
   // --- SIMPAN / UPDATE KE DATABASE ---
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !dueDate) return;
+    if (!title || !dueDate || !user) return;
 
     if (editingId !== null) {
       // Update
@@ -80,14 +106,22 @@ export default function LandingPage() {
         setEditingId(null);
       }
     } else {
-      // Simpan Baru
+      // Simpan Baru dengan menyisipkan user_id
       const { data, error } = await supabase
         .from('tasks')
-        .insert([{ title, note, due_date: dueDate, completed: false }])
+        .insert([{
+          title,
+          note,
+          due_date: dueDate,
+          completed: false,
+          user_id: user.id // <-- PENTING: Menambahkan pemilik tugas
+        }])
         .select();
 
       if (!error && data) {
         setTasks([data[0], ...tasks]);
+      } else {
+        alert("Gagal menyimpan tugas. Pastikan RLS di database sudah diatur.");
       }
     }
 
@@ -152,16 +186,28 @@ export default function LandingPage() {
     (task.note && task.note.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Jika user belum dimuat, tampilkan loading layar penuh
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <FileText size={48} className="text-blue-500 mb-4 opacity-50" />
+          <p className="text-gray-400">Memuat sesi...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-12 relative">
 
-      {/* Navbar Diperbarui dengan Search Bar */}
+      {/* Navbar Diperbarui dengan Search Bar & Profile */}
       <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10 shadow-md gap-4 sm:gap-0">
         <h1 className="text-xl font-bold text-blue-400 flex items-center gap-2 whitespace-nowrap">
           <FileText size={24} /> NoteNala
         </h1>
 
-        {/* FITUR BARU: Search Bar */}
+        {/* Search Bar */}
         <div className="relative w-full sm:max-w-md md:mx-4">
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           <input
@@ -178,13 +224,46 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="flex gap-4 w-full sm:w-auto">
+        {/* Menu Kanan: Tombol Drive & Profil */}
+        <div className="flex gap-3 w-full sm:w-auto items-center justify-end">
           <a
             href="/drive"
-            className="flex items-center justify-center w-full sm:w-auto gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-500/30"
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-500 transition shadow-lg shadow-blue-500/30 font-medium"
           >
-            <FolderOpen size={18} /> Drive Tugas
+            <FolderOpen size={18} /> Drive
           </a>
+
+          {/* DROPDOWN PROFIL BARU */}
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="p-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl transition border border-gray-600 flex items-center justify-center"
+              title="Menu Akun"
+            >
+              <User size={18} className="text-gray-200" />
+            </button>
+
+            {isProfileOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsProfileOpen(false)}
+                />
+                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 border-b border-gray-700 bg-gray-900/50">
+                    <p className="text-xs text-gray-400 font-medium mb-1">Masuk sebagai:</p>
+                    <p className="text-sm text-white font-semibold truncate">{user.email}</p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 text-red-400 hover:bg-gray-700 flex items-center gap-3 transition font-medium"
+                  >
+                    <LogOut size={18} /> Keluar Akun
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -325,7 +404,7 @@ export default function LandingPage() {
                             })}
                           </span>
 
-                          {/* Label Sisa Hari (Otomatis Sembunyi Jika Tugas Selesai) */}
+                          {/* Label Sisa Hari */}
                           {!task.completed && (
                             <span className={`flex items-center gap-1 px-3 py-1 rounded-full border ${daysLeft.color}`}>
                               <Clock size={14} />
