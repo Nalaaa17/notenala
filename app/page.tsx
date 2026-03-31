@@ -1,65 +1,403 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2, Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search } from 'lucide-react';
 
-export default function Home() {
+// Struktur data (menyesuaikan kolom di database)
+interface Task {
+  id: number;
+  title: string;
+  note: string;
+  due_date: string;
+  completed: boolean;
+}
+
+export default function LandingPage() {
+  const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
+  const [dueDate, setDueDate] = useState("");
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // STATE BARU: Untuk menyimpan teks pencarian
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // State untuk Custom Modal Hapus
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+
+  // --- AMBIL DATA DARI DATABASE SAAT DIBUKA ---
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (!error && data) setTasks(data);
+    setIsLoading(false);
+  };
+
+  // Fungsi menghitung sisa hari
+  const getDaysLeftInfo = (dateString: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(dateString);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return { text: "Tenggat Hari Ini! 🚨", color: "text-red-400 bg-red-400/10 border-red-400/20" };
+    if (diffDays === 1) return { text: "Besok! ⏰", color: "text-orange-400 bg-orange-400/10 border-orange-400/20" };
+    if (diffDays > 1 && diffDays <= 3) return { text: `${diffDays} hari lagi`, color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" };
+    if (diffDays > 3) return { text: `${diffDays} hari lagi`, color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" };
+    return { text: `Terlambat ${Math.abs(diffDays)} hari ❌`, color: "text-red-500 bg-red-500/10 border-red-500/20" };
+  };
+
+  // --- SIMPAN / UPDATE KE DATABASE ---
+  const handleSaveNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !dueDate) return;
+
+    if (editingId !== null) {
+      // Update
+      const { error } = await supabase
+        .from('tasks')
+        .update({ title, note, due_date: dueDate })
+        .eq('id', editingId);
+
+      if (!error) {
+        setTasks(tasks.map(task =>
+          task.id === editingId ? { ...task, title, note, due_date: dueDate } : task
+        ));
+        setEditingId(null);
+      }
+    } else {
+      // Simpan Baru
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{ title, note, due_date: dueDate, completed: false }])
+        .select();
+
+      if (!error && data) {
+        setTasks([data[0], ...tasks]);
+      }
+    }
+
+    setTitle("");
+    setNote("");
+    setDueDate("");
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingId(task.id);
+    setTitle(task.title);
+    setNote(task.note);
+    setDueDate(task.due_date);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setTitle("");
+    setNote("");
+    setDueDate("");
+  };
+
+  const confirmDelete = (id: number) => {
+    setTaskToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  // --- HAPUS DARI DATABASE ---
+  const executeDelete = async () => {
+    if (taskToDelete !== null) {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskToDelete);
+
+      if (!error) {
+        setTasks(tasks.filter(task => task.id !== taskToDelete));
+      }
+      setIsDeleteModalOpen(false);
+      setTaskToDelete(null);
+    }
+  };
+
+  // --- UPDATE STATUS SELESAI ---
+  const toggleTask = async (task: Task) => {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completed: !task.completed })
+      .eq('id', task.id);
+
+    if (!error) {
+      setTasks(tasks.map(t =>
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      ));
+    }
+  };
+
+  // LOGIKA PENCARIAN (Filter data secara real-time)
+  const filteredTasks = tasks.filter(task =>
+    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (task.note && task.note.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-12 relative">
+
+      {/* Navbar Diperbarui dengan Search Bar */}
+      <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10 shadow-md gap-4 sm:gap-0">
+        <h1 className="text-xl font-bold text-blue-400 flex items-center gap-2 whitespace-nowrap">
+          <FileText size={24} /> NoteNala
+        </h1>
+
+        {/* FITUR BARU: Search Bar */}
+        <div className="relative w-full sm:max-w-md md:mx-4">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Cari tugas..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-600 text-white px-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-3 text-gray-400 hover:text-white">
+              <X size={14} />
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        <div className="flex gap-4 w-full sm:w-auto">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/drive"
+            className="flex items-center justify-center w-full sm:w-auto gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-500/30"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            <FolderOpen size={18} /> Drive Tugas
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        </div>
+      </nav>
+
+      <main className="max-w-4xl mx-auto p-6">
+
+        {/* Sembunyikan Header & Form jika sedang mencari, agar fokus ke hasil pencarian */}
+        {!searchQuery && (
+          <>
+            <section className="mb-8 mt-4 text-center">
+              <h2 className="text-3xl font-extrabold mb-2 text-white">Tugas Semester 5</h2>
+              <p className="text-gray-400 text-lg">Jangan Ditunda tunda selesaikan yang mudah dulu :D</p>
+            </section>
+
+            <div className="space-y-10 mb-10">
+              {/* Form Buat/Edit */}
+              <div className="bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-gray-700">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold flex items-center gap-2 text-white">
+                    {editingId !== null ? (
+                      <><Pencil size={22} className="text-yellow-400" /> Edit Catatan</>
+                    ) : (
+                      <><PlusCircle size={22} className="text-blue-400" /> Buat Catatan Baru</>
+                    )}
+                  </h3>
+                  {editingId !== null && (
+                    <button onClick={handleCancelEdit} className="text-gray-400 hover:text-red-400 flex items-center gap-1 text-sm transition">
+                      <X size={16} /> Batal Edit
+                    </button>
+                  )}
+                </div>
+
+                <form onSubmit={handleSaveNote} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Judul Tugas..."
+                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      required
+                    />
+                    <div className="relative">
+                      <input
+                        type="date"
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition pl-10 custom-date-input"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        required
+                      />
+                      <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                    </div>
+                  </div>
+
+                  <textarea
+                    placeholder="Tulis detail atau instruksi tugas di sini..."
+                    rows={4}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition resize-none"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  ></textarea>
+
+                  <button
+                    type="submit"
+                    className={`w-full font-semibold py-3 rounded-xl flex justify-center items-center gap-2 transition shadow-lg ${editingId !== null
+                      ? 'bg-yellow-600 hover:bg-yellow-500 text-white shadow-yellow-500/20'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
+                      }`}
+                  >
+                    {editingId !== null ? <Pencil size={18} /> : <Send size={18} />}
+                    {editingId !== null ? 'Simpan Perubahan' : 'Simpan ke Daftar'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Daftar Tugas (Menggunakan filteredTasks) */}
+        <div>
+          <h3 className="text-2xl font-bold mb-6 text-white border-b border-gray-700 pb-3">
+            {searchQuery ? `Hasil Pencarian: "${searchQuery}"` : 'Daftar Tugasmu'}
+          </h3>
+
+          <div className="grid grid-cols-1 gap-4">
+            {isLoading ? (
+              <p className="text-center text-gray-400 py-10 animate-pulse">Memuat tugas...</p>
+            ) : filteredTasks.length === 0 ? (
+              <div className="bg-gray-800 border border-gray-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-500">
+                {searchQuery ? (
+                  <>
+                    <Search size={48} className="mb-3 opacity-20" />
+                    <p>Tugas "{searchQuery}" tidak ditemukan.</p>
+                  </>
+                ) : (
+                  <>
+                    <FileText size={48} className="mb-3 opacity-20" />
+                    <p>Belum ada tugas yang dicatat. Santai dulu! ☕</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              filteredTasks.map((task) => {
+                const daysLeft = getDaysLeftInfo(task.due_date);
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center gap-4 transition ${task.completed
+                      ? 'bg-gray-900 border-gray-700 opacity-60'
+                      : 'bg-gray-800 border-gray-600 hover:border-blue-500'
+                      }`}
+                  >
+                    <div className="flex items-start gap-4 flex-1">
+                      <button onClick={() => toggleTask(task)} className="mt-1 focus:outline-none flex-shrink-0">
+                        {task.completed ? (
+                          <CheckCircle2 size={26} className="text-green-400" />
+                        ) : (
+                          <Circle size={26} className="text-gray-400 hover:text-blue-400 transition" />
+                        )}
+                      </button>
+
+                      <div className="flex-1">
+                        <h4 className={`text-lg font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+                          {task.title}
+                        </h4>
+                        {task.note && (
+                          <p className={`mt-1 text-sm ${task.completed ? 'text-gray-600' : 'text-gray-400'}`}>
+                            {task.note}
+                          </p>
+                        )}
+
+                        {/* Info Tanggal & Sisa Hari */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3 text-sm font-medium">
+                          <span className={`flex items-center gap-1 px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800 text-gray-600' : 'bg-gray-700 text-gray-300'}`}>
+                            <Calendar size={14} />
+                            {new Date(task.due_date).toLocaleDateString('id-ID', {
+                              day: 'numeric', month: 'long', year: 'numeric'
+                            })}
+                          </span>
+
+                          {/* Label Sisa Hari (Otomatis Sembunyi Jika Tugas Selesai) */}
+                          {!task.completed && (
+                            <span className={`flex items-center gap-1 px-3 py-1 rounded-full border ${daysLeft.color}`}>
+                              <Clock size={14} />
+                              {daysLeft.text}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tombol Aksi */}
+                    <div className="flex items-center gap-2 md:pl-4 md:border-l md:border-gray-700 pt-4 md:pt-0 border-t border-gray-700 mt-2 md:mt-0 w-full md:w-auto justify-end">
+                      <button
+                        onClick={() => handleEdit(task)}
+                        disabled={task.completed}
+                        className={`p-2 rounded-lg transition ${task.completed ? 'text-gray-600 cursor-not-allowed' : 'text-yellow-400 hover:bg-gray-700'}`}
+                        title="Edit Tugas"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => confirmDelete(task.id)}
+                        className="p-2 text-red-400 hover:bg-gray-700 hover:text-red-300 rounded-lg transition"
+                        title="Hapus Tugas"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </main>
+
+      {/* CUSTOM MODAL HAPUS TUGAS */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-red-500/10 p-4 rounded-full mb-4">
+                <AlertTriangle size={36} className="text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Hapus Tugas?</h3>
+              <p className="text-gray-400 mb-6 text-sm">
+                Tugas ini akan dihapus secara permanen dan tidak dapat dikembalikan.
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={executeDelete}
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/20"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+      `}} />
     </div>
   );
 }
