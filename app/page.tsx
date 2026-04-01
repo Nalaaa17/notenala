@@ -3,17 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase'; // Sesuaikan path ini jika perlu
 import {
   PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2,
-  Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search, User, LogOut
+  Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search, User, LogOut, Coffee, BookHeart, Menu, Bot, Sparkles
 } from 'lucide-react';
 
-// Struktur data (menyesuaikan kolom di database)
+// Struktur data
 interface Task {
   id: number;
   title: string;
   note: string;
-  due_date: string;
+  due_date: string | null;
   completed: boolean;
-  user_id?: string; // Menambahkan opsional user_id
+  user_id?: string;
 }
 
 export default function LandingPage() {
@@ -25,22 +25,19 @@ export default function LandingPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // STATE BARU: Autentikasi & UI Profil
+  // STATE: Autentikasi & UI Profil
   const [user, setUser] = useState<any>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // State untuk menyimpan teks pencarian
+  // State untuk pencarian & Modal Hapus
   const [searchQuery, setSearchQuery] = useState("");
-
-  // State untuk Custom Modal Hapus
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
 
   // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
-  // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
   useEffect(() => {
     const checkUserAndFetchData = async () => {
-      // 1. Tambahkan Listener untuk mendeteksi event PASSWORD_RECOVERY
       supabase.auth.onAuthStateChange(async (event) => {
         if (event === "PASSWORD_RECOVERY") {
           window.location.href = "/reset-password";
@@ -48,11 +45,9 @@ export default function LandingPage() {
         }
       });
 
-      // 2. Cek apakah ada user yang sedang login
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        // Cek apakah URL mengandung link recovery (agar tidak mental ke login saat proses reset)
         if (!window.location.hash.includes('type=recovery')) {
           window.location.href = "/login";
         }
@@ -61,7 +56,6 @@ export default function LandingPage() {
 
       setUser(user);
 
-      // 3. Ambil data tugas
       setIsLoading(true);
       const { data, error } = await supabase
         .from('tasks')
@@ -74,14 +68,15 @@ export default function LandingPage() {
 
     checkUserAndFetchData();
   }, []);
-  // --- FUNGSI LOGOUT ---
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
-  // Fungsi menghitung sisa hari
-  const getDaysLeftInfo = (dateString: string) => {
+  const getDaysLeftInfo = (dateString: string | null) => {
+    if (!dateString) return null;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const targetDate = new Date(dateString);
@@ -97,42 +92,31 @@ export default function LandingPage() {
     return { text: `Terlambat ${Math.abs(diffDays)} hari ❌`, color: "text-red-500 bg-red-500/10 border-red-500/20" };
   };
 
-  // --- SIMPAN / UPDATE KE DATABASE ---
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !dueDate || !user) return;
+    if (!title || !user) return;
+    const finalDueDate = dueDate === "" ? null : dueDate;
 
     if (editingId !== null) {
-      // Update
       const { error } = await supabase
         .from('tasks')
-        .update({ title, note, due_date: dueDate })
+        .update({ title, note, due_date: finalDueDate })
         .eq('id', editingId);
 
       if (!error) {
         setTasks(tasks.map(task =>
-          task.id === editingId ? { ...task, title, note, due_date: dueDate } : task
+          task.id === editingId ? { ...task, title, note, due_date: finalDueDate } : task
         ));
         setEditingId(null);
       }
     } else {
-      // Simpan Baru dengan menyisipkan user_id
       const { data, error } = await supabase
         .from('tasks')
-        .insert([{
-          title,
-          note,
-          due_date: dueDate,
-          completed: false,
-          user_id: user.id // <-- PENTING: Menambahkan pemilik tugas
-        }])
+        .insert([{ title, note, due_date: finalDueDate, completed: false, user_id: user.id }])
         .select();
 
-      if (!error && data) {
-        setTasks([data[0], ...tasks]);
-      } else {
-        alert("Gagal menyimpan tugas. Pastikan RLS di database sudah diatur.");
-      }
+      if (!error && data) setTasks([data[0], ...tasks]);
+      else alert("Gagal menyimpan tugas. Pastikan RLS di database sudah diatur.");
     }
 
     setTitle("");
@@ -144,7 +128,7 @@ export default function LandingPage() {
     setEditingId(task.id);
     setTitle(task.title);
     setNote(task.note);
-    setDueDate(task.due_date);
+    setDueDate(task.due_date || "");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -160,46 +144,28 @@ export default function LandingPage() {
     setIsDeleteModalOpen(true);
   };
 
-  // --- HAPUS DARI DATABASE ---
   const executeDelete = async () => {
     if (taskToDelete !== null) {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskToDelete);
-
-      if (!error) {
-        setTasks(tasks.filter(task => task.id !== taskToDelete));
-      }
+      const { error } = await supabase.from('tasks').delete().eq('id', taskToDelete);
+      if (!error) setTasks(tasks.filter(task => task.id !== taskToDelete));
       setIsDeleteModalOpen(false);
       setTaskToDelete(null);
     }
   };
 
-  // --- UPDATE STATUS SELESAI ---
   const toggleTask = async (task: Task) => {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ completed: !task.completed })
-      .eq('id', task.id);
-
-    if (!error) {
-      setTasks(tasks.map(t =>
-        t.id === task.id ? { ...t, completed: !t.completed } : t
-      ));
-    }
+    const { error } = await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
+    if (!error) setTasks(tasks.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
   };
 
-  // LOGIKA PENCARIAN (Filter data secara real-time)
   const filteredTasks = tasks.filter(task =>
     task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (task.note && task.note.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Jika user belum dimuat, tampilkan loading layar penuh
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
           <FileText size={48} className="text-blue-500 mb-4 opacity-50" />
           <p className="text-gray-400">Memuat sesi...</p>
@@ -209,23 +175,28 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-12 relative">
+    // PERUBAHAN 1: bg-gray-900 diubah menjadi bg-transparent agar background wrapper terlihat
+    <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
 
-      {/* Navbar Diperbarui dengan Search Bar & Profile */}
-      <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10 shadow-md gap-4 sm:gap-0">
-        <h1 className="text-xl font-bold text-blue-400 flex items-center gap-2 whitespace-nowrap">
-          <FileText size={24} /> NoteNala
-        </h1>
+      {/* PERUBAHAN 2: Navbar diberi efek kaca transparan */}
+      <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10 shadow-md gap-4 sm:gap-0">
+        
+        {/* Kiri: Logo */}
+        <div className="flex w-full sm:w-1/4 justify-center sm:justify-start">
+          <div className="w-12 h-12 rounded-full border-2 border-blue-500/50 p-[2px] shadow-md flex items-center justify-center flex-shrink-0 bg-white/5">
+            <img src="/logo.jpg" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
+          </div>
+        </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full sm:max-w-md md:mx-4">
+        {/* Tengah: Search */}
+        <div className="relative w-full sm:flex-1 max-w-lg mx-auto">
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           <input
             type="text"
             placeholder="Cari tugas..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 text-white px-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="w-full bg-gray-900/80 border border-gray-600 text-white px-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery("")} className="absolute right-3 top-3 text-gray-400 hover:text-white">
@@ -234,62 +205,103 @@ export default function LandingPage() {
           )}
         </div>
 
-        {/* Menu Kanan: Tombol Drive & Profil */}
-        <div className="flex gap-3 w-full sm:w-auto items-center justify-end">
-          <a
-            href="/drive"
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-500 transition shadow-lg shadow-blue-500/30 font-medium"
-          >
-            <FolderOpen size={18} /> Drive
-          </a>
-
-          {/* DROPDOWN PROFIL BARU */}
+        {/* Kanan: Profil & Hamburger */}
+        <div className="flex gap-3 w-full sm:w-1/4 items-center justify-center sm:justify-end">
+          
+          {/* Ikon Profil */}
           <div className="relative">
             <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="p-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl transition border border-gray-600 flex items-center justify-center"
+              onClick={() => { setIsProfileOpen(!isProfileOpen); setIsMenuOpen(false); }}
+              className="p-1 border-2 border-transparent hover:border-blue-500 rounded-full transition overflow-hidden"
               title="Menu Akun"
             >
-              <User size={18} className="text-gray-200" />
+              {user.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="Profil" className="w-9 h-9 rounded-full object-cover" />
+              ) : (
+                <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center border border-gray-600">
+                  <User size={18} className="text-gray-200" />
+                </div>
+              )}
             </button>
 
             {isProfileOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsProfileOpen(false)}
-                />
-                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-4 border-b border-gray-700 bg-gray-900/50">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Masuk sebagai:</p>
-                    <p className="text-sm text-white font-semibold truncate">{user.email}</p>
+                <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)} />
+                <div className="absolute right-0 mt-2 w-64 bg-gray-800/90 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-5 border-b border-gray-700/50 bg-gray-900/50 flex flex-col items-center">
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center text-xl font-bold text-white mb-2 shadow-lg border-2 border-gray-700">
+                      {user.user_metadata?.avatar_url ? (
+                        <img src={user.user_metadata.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+                      ) : (
+                        user.email?.substring(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    <p className="text-sm text-white font-semibold truncate w-full text-center">{user.email}</p>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-red-400 hover:bg-gray-700 flex items-center gap-3 transition font-medium"
-                  >
+                  <a href="/profile" className="w-full text-left px-5 py-4 text-gray-300 hover:bg-gray-700/70 hover:text-white flex items-center gap-3 transition font-medium border-b border-gray-700/50">
+                    <User size={18} /> Pengaturan Profil
+                  </a>
+                  <button onClick={handleLogout} className="w-full text-left px-5 py-4 text-red-400 hover:bg-gray-700/70 flex items-center gap-3 transition font-medium">
                     <LogOut size={18} /> Keluar Akun
                   </button>
                 </div>
               </>
             )}
           </div>
+
+          {/* Ikon Hamburger (App Menu) di paling ujung kanan */}
+          <div className="relative">
+            <button
+              onClick={() => { setIsMenuOpen(!isMenuOpen); setIsProfileOpen(false); }}
+              className="p-2 border border-gray-700 hover:border-blue-500 bg-gray-800/80 hover:bg-gray-700 rounded-xl transition text-white shadow-md backdrop-blur-sm"
+              title="Menu Aplikasi"
+            >
+              <Menu size={20} />
+            </button>
+
+            {isMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-gray-800/95 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-3 border-b border-gray-700/50 bg-gray-900/40">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-2">Navigasi Fitur</p>
+                  </div>
+                  <div className="p-2 flex flex-col gap-1">
+                    <a href="/chat" className="w-full px-4 py-3 bg-gradient-to-r from-pink-600/20 to-purple-600/20 hover:from-pink-600/40 hover:to-purple-600/40 text-gray-200 hover:text-white rounded-xl transition flex items-center justify-between gap-3 border border-pink-500/30 font-semibold shadow-lg shadow-purple-500/10 mb-1 group">
+                      <div className="flex items-center gap-3">
+                        <Bot size={18} className="text-pink-400 group-hover:scale-110 transition" /> Nala AI Hub
+                      </div>
+                      <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                    </a>
+                    <a href="/calendar" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-purple-600/20 text-gray-200 hover:text-purple-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-purple-500/30">
+                      <Calendar size={18} className="text-purple-400" /> Kalender Misi
+                    </a>
+                    <a href="/journal" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-pink-600/20 text-gray-200 hover:text-pink-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-pink-500/30">
+                      <BookHeart size={18} className="text-pink-400" /> Jurnal Harian
+                    </a>
+                    <a href="/drive" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-blue-500/30">
+                      <FolderOpen size={18} className="text-blue-400" /> NoteNala Drive
+                    </a>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto p-6">
-
-        {/* Sembunyikan Header & Form jika sedang mencari, agar fokus ke hasil pencarian */}
+      <main className="max-w-4xl mx-auto p-6 relative z-0">
         {!searchQuery && (
           <>
             <section className="mb-8 mt-4 text-center">
-              <h2 className="text-3xl font-extrabold mb-2 text-white">Tugas Tugas Mendatang</h2>
-              <p className="text-gray-400 text-lg">Jangan Ditunda tunda selesaikan yang mudah dulu :D</p>
+              <h2 className="text-3xl font-extrabold mb-2 text-white drop-shadow-md">Tugas Tugas Mendatang</h2>
+              <p className="text-gray-200 text-lg drop-shadow">Jangan Ditunda tunda selesaikan yang mudah dulu :D</p>
             </section>
 
             <div className="space-y-10 mb-10">
-              {/* Form Buat/Edit */}
-              <div className="bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-gray-700">
+              {/* PERUBAHAN 3: Kartu form input diberi efek transparan glassmorphism */}
+              <div className="bg-gray-900/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl border border-gray-700/50">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-semibold flex items-center gap-2 text-white">
                     {editingId !== null ? (
@@ -310,7 +322,7 @@ export default function LandingPage() {
                     <input
                       type="text"
                       placeholder="Judul Tugas..."
-                      className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition"
+                      className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       required
@@ -318,10 +330,9 @@ export default function LandingPage() {
                     <div className="relative">
                       <input
                         type="date"
-                        className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition pl-10 custom-date-input"
+                        className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition pl-10 custom-date-input"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        required
                       />
                       <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400" />
                     </div>
@@ -330,7 +341,7 @@ export default function LandingPage() {
                   <textarea
                     placeholder="Tulis detail atau instruksi tugas di sini..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition resize-none"
+                    className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition resize-none"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                   ></textarea>
@@ -338,8 +349,8 @@ export default function LandingPage() {
                   <button
                     type="submit"
                     className={`w-full font-semibold py-3 rounded-xl flex justify-center items-center gap-2 transition shadow-lg ${editingId !== null
-                      ? 'bg-yellow-600 hover:bg-yellow-500 text-white shadow-yellow-500/20'
-                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
+                      ? 'bg-yellow-600/90 hover:bg-yellow-500 text-white shadow-yellow-500/20 backdrop-blur-sm'
+                      : 'bg-blue-600/90 hover:bg-blue-500 text-white shadow-blue-500/20 backdrop-blur-sm'
                       }`}
                   >
                     {editingId !== null ? <Pencil size={18} /> : <Send size={18} />}
@@ -351,25 +362,25 @@ export default function LandingPage() {
           </>
         )}
 
-        {/* Daftar Tugas (Menggunakan filteredTasks) */}
         <div>
-          <h3 className="text-2xl font-bold mb-6 text-white border-b border-gray-700 pb-3">
+          <h3 className="text-2xl font-bold mb-6 text-white border-b border-gray-700/50 pb-3 drop-shadow-md">
             {searchQuery ? `Hasil Pencarian: "${searchQuery}"` : 'Daftar Tugasmu'}
           </h3>
 
           <div className="grid grid-cols-1 gap-4">
             {isLoading ? (
-              <p className="text-center text-gray-400 py-10 animate-pulse">Memuat tugas...</p>
+              <p className="text-center text-gray-300 py-10 animate-pulse drop-shadow">Memuat tugas...</p>
             ) : filteredTasks.length === 0 ? (
-              <div className="bg-gray-800 border border-gray-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-500">
+              // PERUBAHAN 4: State kosong transparan
+              <div className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400">
                 {searchQuery ? (
                   <>
-                    <Search size={48} className="mb-3 opacity-20" />
+                    <Search size={48} className="mb-3 opacity-40" />
                     <p>Tugas "{searchQuery}" tidak ditemukan.</p>
                   </>
                 ) : (
                   <>
-                    <FileText size={48} className="mb-3 opacity-20" />
+                    <FileText size={48} className="mb-3 opacity-40" />
                     <p>Belum ada tugas yang dicatat. Santai dulu! ☕</p>
                   </>
                 )}
@@ -379,65 +390,71 @@ export default function LandingPage() {
                 const daysLeft = getDaysLeftInfo(task.due_date);
 
                 return (
+                  // PERUBAHAN 5: Kartu list tugas transparan
                   <div
                     key={task.id}
-                    className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center gap-4 transition ${task.completed
-                      ? 'bg-gray-900 border-gray-700 opacity-60'
-                      : 'bg-gray-800 border-gray-600 hover:border-blue-500'
+                    className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center gap-4 transition shadow-md backdrop-blur-md ${task.completed
+                      ? 'bg-gray-900/60 border-gray-700/50 opacity-70'
+                      : 'bg-gray-900/70 border-gray-600/50 hover:border-blue-500/50 hover:bg-gray-800/80'
                       }`}
                   >
                     <div className="flex items-start gap-4 flex-1">
                       <button onClick={() => toggleTask(task)} className="mt-1 focus:outline-none flex-shrink-0">
                         {task.completed ? (
-                          <CheckCircle2 size={26} className="text-green-400" />
+                          <CheckCircle2 size={26} className="text-green-400 drop-shadow" />
                         ) : (
-                          <Circle size={26} className="text-gray-400 hover:text-blue-400 transition" />
+                          <Circle size={26} className="text-gray-300 hover:text-blue-400 transition" />
                         )}
                       </button>
 
                       <div className="flex-1">
-                        <h4 className={`text-lg font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+                        <h4 className={`text-lg font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-100 drop-shadow-sm'}`}>
                           {task.title}
                         </h4>
                         {task.note && (
-                          <p className={`mt-1 text-sm ${task.completed ? 'text-gray-600' : 'text-gray-400'}`}>
+                          <p className={`mt-1 text-sm ${task.completed ? 'text-gray-600' : 'text-gray-300'}`}>
                             {task.note}
                           </p>
                         )}
 
-                        {/* Info Tanggal & Sisa Hari */}
                         <div className="flex flex-wrap items-center gap-2 mt-3 text-sm font-medium">
-                          <span className={`flex items-center gap-1 px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800 text-gray-600' : 'bg-gray-700 text-gray-300'}`}>
-                            <Calendar size={14} />
-                            {new Date(task.due_date).toLocaleDateString('id-ID', {
-                              day: 'numeric', month: 'long', year: 'numeric'
-                            })}
-                          </span>
+                          {task.due_date ? (
+                            <>
+                              <span className={`flex items-center gap-1 px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800/80 text-gray-500' : 'bg-gray-800/80 text-gray-300 border border-gray-700/50'}`}>
+                                <Calendar size={14} />
+                                {new Date(task.due_date).toLocaleDateString('id-ID', {
+                                  day: 'numeric', month: 'long', year: 'numeric'
+                                })}
+                              </span>
 
-                          {/* Label Sisa Hari */}
-                          {!task.completed && (
-                            <span className={`flex items-center gap-1 px-3 py-1 rounded-full border ${daysLeft.color}`}>
-                              <Clock size={14} />
-                              {daysLeft.text}
+                              {!task.completed && daysLeft && (
+                                <span className={`flex items-center gap-1 px-3 py-1 rounded-full border ${daysLeft.color} backdrop-blur-sm`}>
+                                  <Clock size={14} />
+                                  {daysLeft.text}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-800/80 text-gray-400 border border-gray-700/50">
+                              <Coffee size={14} /> Kapan saja
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Tombol Aksi */}
-                    <div className="flex items-center gap-2 md:pl-4 md:border-l md:border-gray-700 pt-4 md:pt-0 border-t border-gray-700 mt-2 md:mt-0 w-full md:w-auto justify-end">
+                    <div className="flex items-center gap-2 md:pl-4 md:border-l md:border-gray-700/50 pt-4 md:pt-0 border-t border-gray-700/50 mt-2 md:mt-0 w-full md:w-auto justify-end">
                       <button
                         onClick={() => handleEdit(task)}
                         disabled={task.completed}
-                        className={`p-2 rounded-lg transition ${task.completed ? 'text-gray-600 cursor-not-allowed' : 'text-yellow-400 hover:bg-gray-700'}`}
+                        className={`p-2 rounded-lg transition ${task.completed ? 'text-gray-600 cursor-not-allowed' : 'text-yellow-400 hover:bg-gray-700/70'}`}
                         title="Edit Tugas"
                       >
                         <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => confirmDelete(task.id)}
-                        className="p-2 text-red-400 hover:bg-gray-700 hover:text-red-300 rounded-lg transition"
+                        className="p-2 text-red-400 hover:bg-gray-700/70 hover:text-red-300 rounded-lg transition"
                         title="Hapus Tugas"
                       >
                         <Trash2 size={18} />
@@ -451,29 +468,29 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* CUSTOM MODAL HAPUS TUGAS */}
+      {/* CUSTOM MODAL HAPUS */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+          <div className="bg-gray-900/90 border border-gray-700/50 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
-              <div className="bg-red-500/10 p-4 rounded-full mb-4">
-                <AlertTriangle size={36} className="text-red-500" />
+              <div className="bg-red-500/10 p-4 rounded-full mb-4 border border-red-500/20">
+                <AlertTriangle size={36} className="text-red-500 drop-shadow-md" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Hapus Tugas?</h3>
-              <p className="text-gray-400 mb-6 text-sm">
+              <p className="text-gray-300 mb-6 text-sm">
                 Tugas ini akan dihapus secara permanen dan tidak dapat dikembalikan.
               </p>
 
               <div className="flex gap-3 w-full">
                 <button
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 transition"
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-800 text-gray-200 hover:bg-gray-700 transition border border-gray-700/50"
                 >
                   Batal
                 </button>
                 <button
                   onClick={executeDelete}
-                  className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/20"
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-red-600/90 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/20 backdrop-blur-sm"
                 >
                   Ya, Hapus
                 </button>

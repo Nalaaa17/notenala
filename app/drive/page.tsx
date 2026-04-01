@@ -191,13 +191,13 @@ export default function DrivePage() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-900 text-gray-100 font-sans pb-12 relative">
+        <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
 
-            <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
+            <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
                 <h1 className="text-xl font-bold text-blue-400 flex items-center gap-2">
                     <FileText size={24} /> NoteNala Drive
                 </h1>
-                <a href="/" className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">
+                <a href="/" className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition border border-gray-700/50 backdrop-blur-sm">
                     <ArrowLeft size={18} /> Kembali ke Catatan
                 </a>
             </nav>
@@ -245,10 +245,10 @@ export default function DrivePage() {
                                 </div>
                             ) : (
                                 filteredFolders.map((folder) => (
-                                    <div key={folder.id} onClick={() => handleOpenFolder(folder)} className="bg-gray-800 border border-gray-700 p-5 rounded-2xl hover:border-blue-500 hover:bg-gray-750 transition cursor-pointer group flex flex-col justify-between h-32 relative overflow-hidden">
+                                    <div key={folder.id} onClick={() => handleOpenFolder(folder)} className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 p-5 rounded-2xl hover:border-blue-500/50 hover:bg-gray-800/80 transition cursor-pointer group flex flex-col justify-between h-32 relative overflow-hidden shadow-lg shadow-black/20">
                                         <div className="flex justify-between items-start">
                                             <Folder size={36} className="text-blue-400 fill-blue-400/20" />
-                                            <button onClick={(e) => confirmDeleteFolder(folder.id, e)} className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition p-1 bg-gray-800 rounded-lg" title="Hapus Folder"><Trash2 size={18} /></button>
+                                            <button onClick={(e) => confirmDeleteFolder(folder.id, e)} className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition p-1 bg-gray-800/80 border border-gray-700/50 rounded-lg backdrop-blur-sm" title="Hapus Folder"><Trash2 size={18} /></button>
                                         </div>
                                         <h3 className="font-semibold text-white truncate">{folder.name}</h3>
                                     </div>
@@ -284,25 +284,25 @@ export default function DrivePage() {
                             </div>
                         </div>
 
-                        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+                        <div className="bg-gray-900/60 backdrop-blur-md rounded-2xl border border-gray-700/50 overflow-hidden shadow-xl shadow-black/20">
                             {currentFiles.length === 0 ? (
-                                <div className="py-20 text-center text-gray-500">
-                                    <UploadCloud size={48} className="mx-auto mb-3 opacity-20" />
+                                <div className="py-20 text-center text-gray-400">
+                                    <UploadCloud size={48} className="mx-auto mb-3 opacity-30" />
                                     <p>Folder ini kosong.</p>
                                 </div>
                             ) : filteredFiles.length === 0 ? (
-                                <div className="py-20 text-center text-gray-500">
-                                    <Search size={48} className="mx-auto mb-3 opacity-20" />
+                                <div className="py-20 text-center text-gray-400">
+                                    <Search size={48} className="mx-auto mb-3 opacity-30" />
                                     <p>File "{searchQuery}" tidak ditemukan.</p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-700">
+                                <div className="divide-y divide-gray-700/50">
                                     {filteredFiles.map((file) => (
-                                        <div key={file.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-750 transition gap-4 sm:gap-0">
+                                        <div key={file.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-gray-800/80 transition gap-4 sm:gap-0">
                                             <div className="flex items-center gap-4 min-w-0">
-                                                <div className="bg-blue-500/10 p-3 rounded-xl text-blue-400 flex-shrink-0"><File size={24} /></div>
+                                                <div className="bg-blue-500/10 p-3 rounded-xl text-blue-400 flex-shrink-0 border border-blue-500/10"><File size={24} /></div>
                                                 <div className="min-w-0">
-                                                    <h4 className="font-medium text-gray-100 truncate">{file.name}</h4>
+                                                    <h4 className="font-medium text-gray-100 truncate drop-shadow-sm">{file.name}</h4>
                                                     <div className="flex text-sm text-gray-400 gap-3 mt-0.5">
                                                         <span>{file.size}</span><span>•</span><span>{file.date}</span>
                                                     </div>
@@ -319,7 +319,7 @@ export default function DrivePage() {
                                                 <a href={`${file.file_url}?download=${encodeURIComponent(file.name)}`} className="p-2 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition" title="Download Langsung">
                                                     <Download size={18} />
                                                 </a>
-                                                <button onClick={() => confirmDeleteFile(file.id, file.file_url)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700 hover:bg-red-500/10 rounded-lg transition" title="Hapus File">
+                                                <button onClick={() => confirmDeleteFile(file.id, file.file_url)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800/50 hover:bg-red-500/10 rounded-lg transition" title="Hapus File">
                                                     <Trash2 size={18} />
                                                 </button>
                                             </div>

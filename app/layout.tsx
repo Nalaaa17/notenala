@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"; // Tambahkan Viewport di sini
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import BackgroundWrapper from "./components/BackgroundWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,6 +23,10 @@ export const metadata: Metadata = {
   title: "NoteNala",
   description: "Platform simpan tugas dan catatan praktis",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.jpg",
+    apple: "/logo.jpg"
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -39,7 +44,11 @@ export default function RootLayout({
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <BackgroundWrapper>
+          {children}
+        </BackgroundWrapper>
+      </body>
     </html>
   );
 }

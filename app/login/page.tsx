@@ -82,13 +82,12 @@ export default function LoginPage() {
 
             <div className="bg-gray-800 border border-gray-700 p-8 rounded-3xl shadow-2xl max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-                {/* LOGO & JUDUL */}
-                <div className="text-center mb-8">
-                    <div className="bg-blue-500/10 p-4 rounded-full inline-block mb-4">
-                        <FileText size={40} className="text-blue-500" />
+                <div className="text-center mb-8 flex flex-col items-center">
+                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-[6px] border-blue-500/30 p-1 shadow-2xl flex items-center justify-center flex-shrink-0 bg-white/5 mb-5 relative group">
+                         <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-xl opacity-50 group-hover:opacity-80 transition-opacity"></div>
+                         <img src="/logo.jpg" alt="Logo" className="w-full h-full rounded-full object-cover object-center relative z-10" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-2">NoteNala</h1>
-                    <p className="text-gray-400">Simpan dan atur tugasmu dengan mudah</p>
+                    <p className="text-gray-400 font-medium text-lg">Simpan dan atur tugasmu dengan mudah</p>
                 </div>
 
                 {/* TOGGLE TAB MASUK / DAFTAR */}

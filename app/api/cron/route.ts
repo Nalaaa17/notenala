@@ -48,7 +48,7 @@ export async function GET() {
                                 <p style="white-space: pre-wrap;">${task.note || 'Tidak ada detail catatan.'}</p>
                             </div>
                             
-                            <p>Jika sudah selesai dikerjakan, jangan lupa buka <a href="http://localhost:3000">NoteNala</a> dan centang tugasnya agar pengingat ini berhenti!</p>
+                            <p>Jika sudah selesai dikerjakan, jangan lupa buka <a href="https://nala.my.id">NoteNala</a> dan centang tugasnya agar pengingat ini berhenti!</p>
                             <p>Semangat! 🔥</p>
                         </div>
                     `

@@ -9,42 +9,26 @@
     "orientation": "portrait",
     "icons": [
         {
-            "src": "/1.png",
+            "src": "/logo.jpg",
             "sizes": "192x192",
-            "type": "image/png",
+            "type": "image/jpeg",
             "purpose": "any maskable"
         },
         {
-            "src": "/2.png",
+            "src": "/logo.jpg",
             "sizes": "512x512",
-            "type": "image/png",
+            "type": "image/jpeg",
             "purpose": "any maskable"
-        }
-    ],
-    "screenshots": [
-        {
-            "src": "/1.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "form_factor": "wide",
-            "label": "Dashboard NoteNala"
-        },
-        {
-            "src": "/2.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "form_factor": "narrow",
-            "label": "Catatan NoteNala"
         }
     ],
     "shortcuts": [
         {
-            "name": "Buka Drive",
-            "short_name": "Drive",
-            "url": "/drive",
+            "name": "Buka Kalender",
+            "short_name": "Kalender",
+            "url": "/calendar",
             "icons": [
                 {
-                    "src": "/1.png",
+                    "src": "/logo.jpg",
                     "sizes": "192x192"
                 }
             ]
@@ -55,30 +39,8 @@
             "url": "/",
             "icons": [
                 {
-                    "src": "/1.png",
+                    "src": "/logo.jpg",
                     "sizes": "192x192"
-                }
-            ]
-        }
-    ],
-    "widgets": [
-        {
-            "name": "NoteNala Quick View",
-            "description": "Lihat tugas terbaru langsung dari layar depan.",
-            "tag": "notenala-tasks",
-            "ms_allow_remoting": true,
-            "icons": [
-                {
-                    "src": "/1.png",
-                    "sizes": "192x192",
-                    "type": "image/png"
-                }
-            ],
-            "screenshots": [
-                {
-                    "src": "/2.png",
-                    "sizes": "512x512",
-                    "label": "Pratinjau Widget NoteNala"
                 }
             ]
         }
