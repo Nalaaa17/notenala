@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User, Mail, Lock, Camera, ArrowLeft, Save, Loader2, CheckCircle2, Phone, FileText, Palette, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { useThemeStore } from '../store/useThemeStore'; // Pastikan path ini sesuai dengan struktur foldermu
+import { useThemeStore } from '../store/useThemeStore';
+import PushNotificationManager from '../components/PushNotificationManager';
 
 export default function ProfilePage() {
     const { setTheme } = useThemeStore();

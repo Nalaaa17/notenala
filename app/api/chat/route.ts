@@ -31,7 +31,23 @@ export async function POST(req: Request) {
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
+      tools: [{
+        // @ts-ignore
+        googleSearch: {}
+      }],
       systemInstruction: `Kamu adalah 'Nala', asisten virtual dan AI ramah eksklusif untuk aplikasi 'NoteNala' (aplikasi manajemen tugas, mood tracker, dan kalender pengingat). Selalu perkenalkan diri jika ditanya. Karaktermu: Cerdas, penuh simpati, penyemangat (supportive), logis tapi santai, gaya bicara Gen-Z yang rapi tapi seru, dan selalu menyisipkan emoji manis yang relevan. Tugas utamamu membantu mengatur jadwal, memberi ide penulisan jurnal, dan mendengarkan curhat keseharian dengan penuh empati. 
+
+      [AKSES INTERNET & PENCARIAN GOOGLE]
+      Kamu sekarang BISA TERHUBUNG DENGAN INTERNET! Jika pengguna menanyakan rekomendasi tempat (seperti restoran, kafe enak terdekat, peta letak), fakta terkini, cuaca, atau informasi apa pun di dunia nyata, gunakan fitur Pencarian Google-mu untuk mencari dan merangkumkan rekomendasi lengkap dangan alamat atau daya tarik lokasinya! JANGAN PERNAH lagi mengatakan bahwa kamu tidak punya database atau tidak bisa mencari tempat, karena sekarang kamu BISA mencarinya langsung di internet!
+      
+      [KEMAMPUAN MEMBACA GAMBAR (VISION)]
+      Jika pengguna melampirkan sebuah gambar (terutama berupa foto jadwal, tugas sekolah/kuliah, catatan materi, referensi desain, atau papan tulis), Visi AI kamu TELAH AKTIF! 
+      - Bacalah gambar itu baik-baik!
+      - Ekstrak seluruh teks yang relevan.
+      - Jika itu berisi tugas, langsung konversi jadwal tersebut menggunakan format JSON \`create_task\` agar sistem otomatis menyimpannya tanpa pengguna harus mengetik!
+      
+      [KEMAMPUAN MEMBACA DOKUMEN PDF]
+      Jika pengguna melampirkan sebuah file Dokumen PDF (biasanya berisi makalah, jurnal, soal ujian, atau buku), bacalah dokumen itu secara menyeluruh. Jadilah asisten riset yang teliti. Jawablah pertanyaan apa pun terkait PDF tersebut (seperti merangkum, mengekstrak data, atau membuat soal).
       
       [INFORMASI RAHASIA]
       Kamu memiliki akses ke memori database pengguna saat ini. Hindari menyebutkan bahwa kamu melihat "tabel baris/JSON/sistem", bertingkahlah seoalah kamu sekadar ingat kesehariannya. Pandu mereka dengan data berikut:
@@ -46,8 +62,7 @@ export async function POST(req: Request) {
         "due_date": "YYYY-MM-DD (format tahun-bulan-tanggal, wajib valid. Jika tidak disebut, gunakan tanggal besok)",
         "note": "Catatan opsional, kosongkan jika tidak ada"
       }
-      \`\`\`
-      Pastikan blok json ini selalu ada di akhir pesan jika kamu perlu memicu penambahan tugas.`
+      \`\`\``
     });
 
     // Kita pisahkan pesan terakhir (pesan aktif saat ini) dari memori ngobrol lampau (history)
@@ -66,8 +81,42 @@ export async function POST(req: Request) {
       history: pastHistory,
     });
 
-    // Mengirim pesan ke AI
-    const result = await chatSession.sendMessage(lastUserMessage.content);
+    // Format isi pesan (Dukung teks dan/atau gambar multimodality terbaru)
+    const messageParts: any[] = [lastUserMessage.content];
+    if (lastUserMessage.image) {
+      // Menangani format Base64 generic (baik image maupun application/pdf)
+      const mimeTypeMatch = lastUserMessage.image.match(/^data:([^;]+);base64,/);
+      const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
+      const base64Data = lastUserMessage.image.replace(/^data:[^;]+;base64,/, "");
+
+      messageParts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      });
+    }
+
+    if (lastUserMessage.pdfUrl) {
+      try {
+        const pdfResponse = await fetch(lastUserMessage.pdfUrl);
+        if (pdfResponse.ok) {
+          const pdfBuffer = await pdfResponse.arrayBuffer();
+          const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+          messageParts.push({
+            inlineData: {
+              data: pdfBase64,
+              mimeType: "application/pdf"
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Gagal fetch PDF:", e);
+      }
+    }
+
+    // Mengirim array pesan ke AI
+    const result = await chatSession.sendMessage(messageParts);
     const responseText = result.response.text();
 
     return Response.json({ text: responseText });

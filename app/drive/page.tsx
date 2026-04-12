@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     Folder, FileText, UploadCloud, Plus, ArrowLeft,
-    Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search
+    Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search, Sparkles
 } from 'lucide-react';
 
 interface FolderType {
@@ -404,7 +404,16 @@ export default function DrivePage() {
                             <h3 className="text-lg font-bold text-white truncate flex items-center gap-2">
                                 <FileText size={20} className="text-blue-400" /> {previewFile.name}
                             </h3>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
+                                {previewFile.name.toLowerCase().endsWith('.pdf') && (
+                                    <a 
+                                        href={`/chat?pdfUrl=${encodeURIComponent(previewFile.file_url)}&pdfName=${encodeURIComponent(previewFile.name)}`} 
+                                        className="p-2 sm:px-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition flex items-center gap-1.5 shadow-lg shadow-purple-500/20 mr-1" 
+                                        title="Tanya Nala tentang PDF ini"
+                                    >
+                                        <Sparkles size={16} /> <span className="hidden sm:inline text-sm font-medium">Tanya Nala</span>
+                                    </a>
+                                )}
                                 <a href={`${previewFile.file_url}?download=${encodeURIComponent(previewFile.name)}`} className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition" title="Download File">
                                     <Download size={18} />
                                 </a>

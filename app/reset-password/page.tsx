@@ -9,6 +9,8 @@ export default function ResetPasswordPage() {
     const [message, setMessage] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+
+
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -37,6 +39,7 @@ export default function ResetPasswordPage() {
         }
         setIsLoading(false);
     };
+
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 font-sans text-gray-100">

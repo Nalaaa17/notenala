@@ -1,20 +1,38 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Sparkles, Bot, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Bot, User, Loader2, ImagePlus, X, FileText, Paperclip } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  image?: string | null;
+  pdfUrl?: string | null;
 }
 
-export default function ChatPage() {
+function ChatContent() {
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: 'Halo! Aku Nala, asisten khusus kamu di NoteNala ✨. Ada yang bisa aku bantu hari ini? Mau diskusi soal rencana kerja (tugas) atau cuman mau ngobrol nyantai?' }
     ]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<{ base64: string, type: string, name: string } | null>(null);
+    const [attachedPdf, setAttachedPdf] = useState<{ url: string, name: string } | null>(null);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const docInputRef = useRef<HTMLInputElement>(null);
+
+    const searchParams = useSearchParams();
+    const pdfUrlParam = searchParams.get('pdfUrl');
+    const pdfNameParam = searchParams.get('pdfName');
+
+    useEffect(() => {
+        if (pdfUrlParam && pdfNameParam) {
+            setAttachedPdf({ url: pdfUrlParam, name: pdfNameParam });
+        }
+    }, [pdfUrlParam, pdfNameParam]);
 
     // State untuk Context Injection
     const [userProfile, setUserProfile] = useState<any>(null);
@@ -57,13 +75,44 @@ export default function ChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isLoading]);
 
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            // Validasi ukuran agar tidak melebihi 10MB (menjaga performa Base64)
+            if (file.size > 10 * 1024 * 1024) {
+                alert("Maksimal ukuran file adalah 10MB.");
+                if (imageInputRef.current) imageInputRef.current.value = "";
+                if (docInputRef.current) docInputRef.current.value = "";
+                return;
+            }
 
-        const userMsg: Message = { role: 'user', content: input.trim() };
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedFile({
+                    base64: reader.result as string,
+                    type: file.type,
+                    name: file.name
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSend = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if ((!input.trim() && !selectedFile && !attachedPdf) || isLoading) return;
+
+        const userMsg: Message = { 
+            role: 'user', 
+            content: input.trim() || (selectedFile?.type.includes('pdf') ? 'Tolong rangkum/analisis dokumen ini.' : 'Tolong proses dokumen/gambar yang saya kirimkan.'),
+            image: selectedFile?.base64,
+            pdfUrl: attachedPdf?.url
+        };
+        
         setMessages(prev => [...prev, userMsg]);
         setInput("");
+        setSelectedFile(null);
+        setAttachedPdf(null);
         setIsLoading(true);
 
         try {
@@ -188,6 +237,16 @@ export default function ChatPage() {
                                  ? 'bg-gray-800/80 backdrop-blur-md rounded-tl-sm border-gray-700/50 text-gray-200' 
                                  : 'bg-blue-600/90 backdrop-blur-md rounded-tr-sm border-blue-500/30 text-white'
                             }`}>
+                                {msg.image && (
+                                    msg.image.startsWith('data:application/pdf') || msg.image.startsWith('data:application/doc') ? (
+                                        <div className="flex items-center gap-3 p-3 bg-black/20 rounded-xl mb-3 border border-white/10">
+                                            <FileText size={20} className="text-purple-300 flex-shrink-0" />
+                                            <span className="text-sm font-medium">Dokumen File</span>
+                                        </div>
+                                    ) : (
+                                        <img src={msg.image} alt="Attachment" className="w-full max-w-sm rounded-xl mb-3 border border-gray-500/30 shadow-sm" />
+                                    )
+                                )}
                                 <div className="whitespace-pre-wrap text-[15px] leading-relaxed break-words">
                                     {msg.content}
                                 </div>
@@ -217,32 +276,137 @@ export default function ChatPage() {
 
             {/* Bar Input Fixed di Bawah */}
             <div className="w-full bg-gray-900/90 backdrop-blur-xl border-t border-gray-700/60 p-4 sticky bottom-0 z-20">
-                <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-end gap-3 relative">
-                    <textarea 
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            // Kirim jika tekan Enter (tanpa Shift)
-                            if(e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend(e);
-                            }
-                        }}
-                        placeholder="Tanya apapun pada Nala... (Pencet 'Enter' buat nanya)"
-                        rows={1}
-                        className="flex-1 min-h-[56px] max-h-32 px-5 py-4 bg-gray-800/80 border border-gray-700/80 focus:border-purple-500/50 text-white rounded-3xl outline-none resize-none shadow-inner placeholder-gray-500 transition-all custom-scrollbar"
-                    />
-                    <button 
-                        type="submit" 
-                        disabled={!input.trim() || isLoading}
-                        className={`p-3 md:p-4 rounded-full flex-shrink-0 transition-all shadow-xl ${(!input.trim() || isLoading) ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-tr from-purple-600 to-pink-500 text-white hover:scale-105 hover:shadow-purple-500/30'}`}
-                        title="Kirim Pesan"    
-                    >
-                        {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} className="ml-0.5" />}
-                    </button>
-                </form>
+                <div className="max-w-4xl mx-auto relative flex flex-col gap-2">
+                    {/* Antarmuka Lampiran Foto / PDF */}
+                    <div className="flex flex-wrap gap-2 ml-2 md:ml-12 mb-2">
+                        {selectedFile && (
+                            selectedFile.type.includes('image') ? (
+                                <div className="relative inline-block w-20 h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden border-2 border-gray-700 shadow-lg bg-gray-800 flex-shrink-0">
+                                    <img src={selectedFile.base64} alt="Preview" className="w-full h-full object-cover" />
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            if(imageInputRef.current) imageInputRef.current.value = "";
+                                            if(docInputRef.current) docInputRef.current.value = "";
+                                        }} 
+                                        className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-500 text-white rounded-full transition-colors backdrop-blur-sm"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="relative inline-flex items-center gap-3 p-3 pr-8 rounded-2xl border border-blue-500/50 shadow-lg bg-gray-800/80 backdrop-blur w-fit max-w-[200px] md:max-w-xs flex-shrink-0">
+                                    <div className="bg-blue-500/20 p-2 rounded-xl">
+                                        <FileText size={24} className="text-blue-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider mb-0.5">Dokumen</p>
+                                        <p className="text-sm font-medium text-white truncate drop-shadow-sm">{selectedFile.name}</p>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            if(imageInputRef.current) imageInputRef.current.value = "";
+                                            if(docInputRef.current) docInputRef.current.value = "";
+                                        }} 
+                                        className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 bg-black/40 hover:bg-red-500 text-gray-300 hover:text-white rounded-full transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            )
+                        )}
+
+                        {attachedPdf && (
+                            <div className="relative inline-flex items-center gap-3 p-3 pr-8 rounded-2xl border border-purple-500/50 shadow-lg bg-gray-800/80 backdrop-blur w-fit max-w-[200px] md:max-w-xs flex-shrink-0">
+                                <div className="bg-purple-500/20 p-2 rounded-xl">
+                                    <FileText size={24} className="text-purple-400" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider mb-0.5">PDF Dilampirkan</p>
+                                    <p className="text-sm font-medium text-white truncate drop-shadow-sm">{attachedPdf.name}</p>
+                                </div>
+                                <button 
+                                    type="button"
+                                    onClick={() => setAttachedPdf(null)} 
+                                    className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 bg-black/40 hover:bg-red-500 text-gray-300 hover:text-white rounded-full transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <form onSubmit={handleSend} className="flex items-end gap-1.5 md:gap-2">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            ref={imageInputRef} 
+                            className="hidden" 
+                            onChange={handleFileSelect} 
+                        />
+                        <input 
+                            type="file" 
+                            accept=".pdf, .doc, .docx" 
+                            ref={docInputRef} 
+                            className="hidden" 
+                            onChange={handleFileSelect} 
+                        />
+                        
+                        <div className="flex gap-1 mb-1 md:mb-1.5 mr-1">
+                            <button 
+                                type="button"
+                                onClick={() => imageInputRef.current?.click()}
+                                className="p-2 md:p-2.5 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded-full transition-colors flex-shrink-0 touch-manipulation"
+                                title="Lampirkan Gambar Observasi"
+                            >
+                                <ImagePlus size={22} />
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => docInputRef.current?.click()}
+                                className="p-2 md:p-2.5 text-gray-400 hover:text-purple-400 hover:bg-gray-800 rounded-full transition-colors flex-shrink-0 touch-manipulation"
+                                title="Lampirkan Dokumen PDF/Word"
+                            >
+                                <Paperclip size={22} />
+                            </button>
+                        </div>
+
+                        <textarea 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                // Kirim jika tekan Enter (tanpa Shift)
+                                if(e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend(e as unknown as React.FormEvent);
+                                }
+                            }}
+                            placeholder="Tanya Nala atau lampirkan dokumen/foto..."
+                            rows={1}
+                            className="flex-1 min-h-[50px] md:min-h-[56px] max-h-32 px-4 md:px-5 py-3 md:py-4 bg-gray-800/80 border border-gray-700/80 focus:border-purple-500/50 text-white text-[16px] md:text-sm rounded-3xl outline-none resize-none shadow-inner placeholder-gray-500 transition-all custom-scrollbar touch-manipulation"
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={(!input.trim() && !selectedFile && !attachedPdf) || isLoading}
+                            className={`p-3 md:p-4 rounded-full flex-shrink-0 transition-all shadow-xl touch-manipulation ${(!input.trim() && !selectedFile && !attachedPdf) || isLoading ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-tr from-purple-600 to-pink-500 text-white hover:scale-105 hover:shadow-purple-500/30'}`}
+                            title="Kirim Pesan"    
+                        >
+                            {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} className="ml-0.5 md:ml-0.5" />}
+                        </button>
+                    </form>
+                </div>
                 <p className="text-center text-[10px] sm:text-xs text-gray-500 mt-2 font-medium">Nala AI dapat memberikan jawaban yang tidak akurat. Cek kembali jadwal pentingmu secara manual.</p>
             </div>
         </div>
+    );
+}
+
+export default function ChatPage() {
+    return (
+        <React.Suspense fallback={<div className="h-screen w-full flex flex-col items-center justify-center bg-gray-900 text-white gap-4"><Loader2 className="animate-spin text-purple-500" size={32} /><p className="text-purple-300 font-medium animate-pulse">Menyiapkan Otak Nala...</p></div>}>
+            <ChatContent />
+        </React.Suspense>
     );
 }

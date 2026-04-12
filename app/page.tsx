@@ -178,35 +178,36 @@ export default function LandingPage() {
     // PERUBAHAN 1: bg-gray-900 diubah menjadi bg-transparent agar background wrapper terlihat
     <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
 
-      {/* PERUBAHAN 2: Navbar diberi efek kaca transparan */}
-      <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10 shadow-md gap-4 sm:gap-0">
-        
-        {/* Kiri: Logo */}
-        <div className="flex w-full sm:w-1/4 justify-center sm:justify-start">
-          <div className="w-12 h-12 rounded-full border-2 border-blue-500/50 p-[2px] shadow-md flex items-center justify-center flex-shrink-0 bg-white/5">
-            <img src="/logo.jpg" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
+      {/* PERUBAHAN 2: Navbar diberi efek kaca transparan & optimalisasi Mobile PWA */}
+      <nav className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50 px-4 md:px-6 py-3 sticky top-0 z-20 shadow-sm pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
+        <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+          
+          {/* Kiri: Logo */}
+          <div className="flex-shrink-0">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-blue-500/50 p-[2px] shadow-sm flex items-center justify-center bg-white/5">
+              <img src="/logo.jpg" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
+            </div>
           </div>
-        </div>
 
-        {/* Tengah: Search */}
-        <div className="relative w-full sm:flex-1 max-w-lg mx-auto">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Cari tugas..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-900/80 border border-gray-600 text-white px-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-3 text-gray-400 hover:text-white">
-              <X size={14} />
-            </button>
-          )}
-        </div>
+          {/* Tengah: Search (Pindah ke bawah di mobile) */}
+          <div className="order-last sm:order-none w-full sm:w-auto sm:flex-1 max-w-lg mt-3 sm:mt-0 relative group">
+            <Search className="absolute left-3 top-2.5 md:top-3 text-gray-400 group-focus-within:text-blue-400 transition-colors" size={18} />
+            <input
+              type="text"
+              placeholder="Cari tugas..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-gray-950/50 sm:bg-gray-900/80 border border-gray-600/70 text-gray-100 placeholder-gray-400 text-[16px] md:text-sm px-10 py-2.5 md:py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-gray-900/90 transition-all touch-manipulation"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-2.5 md:top-3 text-gray-400 hover:text-white transition-colors touch-manipulation">
+                <X size={16} />
+              </button>
+            )}
+          </div>
 
-        {/* Kanan: Profil & Hamburger */}
-        <div className="flex gap-3 w-full sm:w-1/4 items-center justify-center sm:justify-end">
+          {/* Kanan: Profil & Hamburger */}
+          <div className="flex gap-2.5 md:gap-3 items-center flex-shrink-0">
           
           {/* Ikon Profil */}
           <div className="relative">
@@ -287,11 +288,12 @@ export default function LandingPage() {
               </>
             )}
           </div>
-
+          
         </div>
-      </nav>
+      </div>
+    </nav>
 
-      <main className="max-w-4xl mx-auto p-6 relative z-0">
+      <main className="max-w-4xl mx-auto px-4 py-6 md:p-6 relative z-0 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
         {!searchQuery && (
           <>
             <section className="mb-8 mt-4 text-center">
@@ -317,12 +319,12 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                <form onSubmit={handleSaveNote} className="space-y-5">
+                <form onSubmit={handleSaveNote} className="space-y-4 md:space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input
                       type="text"
                       placeholder="Judul Tugas..."
-                      className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition"
+                      className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition text-[16px] md:text-sm touch-manipulation"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       required
@@ -330,18 +332,18 @@ export default function LandingPage() {
                     <div className="relative">
                       <input
                         type="date"
-                        className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition pl-10 custom-date-input"
+                        className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition pl-10 custom-date-input text-[16px] md:text-sm touch-manipulation"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
                       />
-                      <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                      <Calendar size={18} className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
 
                   <textarea
                     placeholder="Tulis detail atau instruksi tugas di sini..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition resize-none"
+                    className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500 transition resize-none text-[16px] md:text-sm touch-manipulation"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                   ></textarea>
@@ -390,75 +392,77 @@ export default function LandingPage() {
                 const daysLeft = getDaysLeftInfo(task.due_date);
 
                 return (
-                  // PERUBAHAN 5: Kartu list tugas transparan
+                  // PERUBAHAN 5: Kartu list tugas transparan & optimal untuk Mobile
                   <div
                     key={task.id}
-                    className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center gap-4 transition shadow-md backdrop-blur-md ${task.completed
-                      ? 'bg-gray-900/60 border-gray-700/50 opacity-70'
-                      : 'bg-gray-900/70 border-gray-600/50 hover:border-blue-500/50 hover:bg-gray-800/80'
+                    className={`p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md ${task.completed
+                      ? 'bg-gray-900/50 border-gray-800/50 opacity-80'
+                      : 'bg-gray-900/80 border-gray-700/60 hover:border-blue-500/50 hover:bg-gray-800/90'
                       }`}
                   >
-                    <div className="flex items-start gap-4 flex-1">
-                      <button onClick={() => toggleTask(task)} className="mt-1 focus:outline-none flex-shrink-0">
+                    <div className="pt-0.5">
+                      <button onClick={() => toggleTask(task)} className="focus:outline-none flex-shrink-0 touch-manipulation active:scale-95 transition-transform">
                         {task.completed ? (
-                          <CheckCircle2 size={26} className="text-green-400 drop-shadow" />
+                          <CheckCircle2 size={24} className="text-green-500 drop-shadow-sm" />
                         ) : (
-                          <Circle size={26} className="text-gray-300 hover:text-blue-400 transition" />
+                          <Circle size={24} className="text-gray-400 hover:text-blue-400 transition" />
                         )}
                       </button>
+                    </div>
 
-                      <div className="flex-1">
-                        <h4 className={`text-lg font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-100 drop-shadow-sm'}`}>
+                    <div className="flex-1 flex flex-col md:flex-row md:items-center min-w-0">
+                      <div className="flex-1 min-w-0 md:pr-4">
+                        <h4 className={`text-base md:text-lg font-semibold truncate ${task.completed ? 'line-through text-gray-500' : 'text-gray-100 drop-shadow-sm'}`}>
                           {task.title}
                         </h4>
                         {task.note && (
-                          <p className={`mt-1 text-sm ${task.completed ? 'text-gray-600' : 'text-gray-300'}`}>
+                          <p className={`mt-1 text-sm ${task.completed ? 'text-gray-600' : 'text-gray-300'} line-clamp-2 md:line-clamp-none`}>
                             {task.note}
                           </p>
                         )}
 
-                        <div className="flex flex-wrap items-center gap-2 mt-3 text-sm font-medium">
+                        <div className="flex flex-wrap items-center gap-2 mt-2.5 md:mt-3 text-xs md:text-sm font-medium">
                           {task.due_date ? (
                             <>
-                              <span className={`flex items-center gap-1 px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800/80 text-gray-500' : 'bg-gray-800/80 text-gray-300 border border-gray-700/50'}`}>
-                                <Calendar size={14} />
+                              <span className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800/60 text-gray-500' : 'bg-gray-800/80 text-gray-300 border border-gray-700/50'}`}>
+                                <Calendar size={13} />
                                 {new Date(task.due_date).toLocaleDateString('id-ID', {
-                                  day: 'numeric', month: 'long', year: 'numeric'
+                                  day: 'numeric', month: 'short', year: 'numeric'
                                 })}
                               </span>
 
                               {!task.completed && daysLeft && (
-                                <span className={`flex items-center gap-1 px-3 py-1 rounded-full border ${daysLeft.color} backdrop-blur-sm`}>
-                                  <Clock size={14} />
+                                <span className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 rounded-full border ${daysLeft.color} backdrop-blur-sm`}>
+                                  <Clock size={13} />
                                   {daysLeft.text}
                                 </span>
                               )}
                             </>
                           ) : (
-                            <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-800/80 text-gray-400 border border-gray-700/50">
-                              <Coffee size={14} /> Kapan saja
+                            <span className="flex items-center gap-1.5 px-2.5 md:px-3 py-1 rounded-full bg-gray-800/60 text-gray-400 border border-gray-700/50">
+                              <Coffee size={13} /> Kapan saja
                             </span>
                           )}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 md:pl-4 md:border-l md:border-gray-700/50 pt-4 md:pt-0 border-t border-gray-700/50 mt-2 md:mt-0 w-full md:w-auto justify-end">
-                      <button
-                        onClick={() => handleEdit(task)}
-                        disabled={task.completed}
-                        className={`p-2 rounded-lg transition ${task.completed ? 'text-gray-600 cursor-not-allowed' : 'text-yellow-400 hover:bg-gray-700/70'}`}
-                        title="Edit Tugas"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => confirmDelete(task.id)}
-                        className="p-2 text-red-400 hover:bg-gray-700/70 hover:text-red-300 rounded-lg transition"
-                        title="Hapus Tugas"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex flex-row items-center justify-end gap-1.5 md:gap-2 pt-3 mt-3 md:pt-0 md:mt-0 border-t border-gray-700/30 md:border-t-0 md:border-l md:border-gray-700/50 md:pl-4">
+                        <button
+                          onClick={() => handleEdit(task)}
+                          disabled={task.completed}
+                          className={`p-2 lg:p-2.5 rounded-xl transition touch-manipulation ${task.completed ? 'text-gray-600 cursor-not-allowed hidden md:block' : 'text-yellow-500 hover:bg-yellow-500/10 active:bg-yellow-500/20 bg-gray-800/40 md:bg-transparent'}`}
+                          title="Edit Tugas"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => confirmDelete(task.id)}
+                          className={`p-2 lg:p-2.5 rounded-xl transition touch-manipulation ${task.completed ? 'text-red-500/50 hover:bg-red-500/10' : 'text-red-400 hover:bg-red-500/10 active:bg-red-500/20 bg-gray-800/40 md:bg-transparent'}`}
+                          title="Hapus Tugas"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
