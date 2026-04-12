@@ -5,15 +5,18 @@ import webpush from 'web-push';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Konfigurasi Web Push menggunakan VAPID Keys dari .env.local
-webpush.setVapidDetails(
-  "mailto:admin@nala.my.id",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
 
 export async function GET() {
     try {
+        // Setup webpush details lazily to avoid build errors 
+        if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+            webpush.setVapidDetails(
+              "mailto:admin@nala.my.id",
+              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+              process.env.VAPID_PRIVATE_KEY
+            );
+        }
+
         // 1. Ambil SEMUA data secara sekaligus via RPC (Melewati pemblokiran Keamanan RLS)
         const { data: rawData, error } = await supabase.rpc('get_cron_tasks_data');
 
