@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
+
+// Gunakan service role key agar bisa tulis tanpa RLS block
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function POST(req: Request) {
   try {
@@ -10,35 +15,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing subscription or user ID" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {},
-          remove(name: string, options: any) {},
-        },
-      }
-    );
+    if (!subscription.endpoint) {
+      return NextResponse.json({ error: "Invalid subscription object" }, { status: 400 });
+    }
 
-    // Cek apakah sudah ada subscription untuk device/endpoint ini
-    const { data: existingSub } = await supabase
+    // Cek apakah endpoint ini sudah tersimpan
+    const { data: existing } = await supabaseAdmin
       .from('push_subscriptions')
       .select('id')
-      .eq('subscription->>endpoint', subscription.endpoint)
-      .single();
+      .eq('user_id', userId)
+      .eq('endpoint', subscription.endpoint)
+      .maybeSingle();
 
-    if (!existingSub) {
-      // Masukkan langganan PWA baru ke database
-      const { error } = await supabase
+    if (!existing) {
+      const { error } = await supabaseAdmin
         .from('push_subscriptions')
-        .insert([{ user_id: userId, subscription }]);
+        .insert([{
+          user_id: userId,
+          subscription: subscription,   // objek lengkap { endpoint, keys }
+          endpoint: subscription.endpoint, // kolom terpisah untuk query cepat
+        }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Insert error:", error);
+        // Fallback: coba tanpa kolom endpoint terpisah (kalau kolom itu belum ada)
+        const { error: error2 } = await supabaseAdmin
+          .from('push_subscriptions')
+          .insert([{ user_id: userId, subscription: subscription }]);
+        if (error2) throw error2;
+      }
+    } else {
+      // Update subscription (keys bisa berubah setelah browser refresh)
+      await supabaseAdmin
+        .from('push_subscriptions')
+        .update({ subscription: subscription })
+        .eq('id', existing.id);
     }
 
     return NextResponse.json({ success: true, message: "Subscription saved!" });

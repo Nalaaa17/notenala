@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     Folder, FileText, UploadCloud, Plus, ArrowLeft,
-    Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search, Sparkles
+    Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search, Sparkles,
+    CheckCircle, Info, XCircle
 } from 'lucide-react';
 
 interface FolderType {
@@ -18,6 +19,14 @@ interface FileType {
     size: string;
     date: string;
     file_url: string;
+}
+
+// Toast Notification Types
+interface ToastType {
+    id: number;
+    message: string;
+    type: 'error' | 'success' | 'info';
+    isExiting?: boolean;
 }
 
 export default function DrivePage() {
@@ -42,6 +51,29 @@ export default function DrivePage() {
 
     // STATE BARU: Untuk fitur pencarian (Search)
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Custom Toast Notification
+    const [toasts, setToasts] = useState<ToastType[]>([]);
+    const toastIdRef = useRef(0);
+
+    const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+        const id = ++toastIdRef.current;
+        setToasts(prev => [...prev, { id, message, type }]);
+        // Start exit animation after 3.5s, remove after 4s
+        setTimeout(() => {
+            setToasts(prev => prev.map(t => t.id === id ? { ...t, isExiting: true } : t));
+        }, 3500);
+        setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== id));
+        }, 4000);
+    };
+
+    const dismissToast = (id: number) => {
+        setToasts(prev => prev.map(t => t.id === id ? { ...t, isExiting: true } : t));
+        setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== id));
+        }, 500);
+    };
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,9 +104,16 @@ export default function DrivePage() {
         const uploadedFile = e.target.files?.[0];
         if (!uploadedFile || !currentFolder) return;
 
-        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/x-zip-compressed'];
         if (!allowedTypes.includes(uploadedFile.type)) {
-            alert("Format tidak didukung! Hanya boleh upload PDF, DOC, atau DOCX.");
+            showToast("Format tidak didukung! Hanya boleh upload PDF, DOC, DOCX, atau ZIP.", "error");
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+        if (uploadedFile.size > MAX_FILE_SIZE) {
+            showToast("Ukuran file terlalu besar! Maksimal 10 MB.", "error");
             if (fileInputRef.current) fileInputRef.current.value = '';
             return;
         }
@@ -86,7 +125,7 @@ export default function DrivePage() {
         const { error: uploadError } = await supabase.storage.from('tugas-file').upload(fileName, uploadedFile);
 
         if (uploadError) {
-            alert("Gagal mengunggah file ke server.");
+            showToast("Gagal mengunggah file ke server.", "error");
             setIsUploading(false);
             return;
         }
@@ -133,7 +172,7 @@ export default function DrivePage() {
                 setPreviewFile({ ...previewFile, name: newFileName.trim() });
             }
         } else {
-            alert("Terjadi kesalahan saat mengubah nama file.");
+            showToast("Terjadi kesalahan saat mengubah nama file.", "error");
         }
     };
 
@@ -276,7 +315,7 @@ export default function DrivePage() {
                                         className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white transition"
                                     />
                                 </div>
-                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf, .doc, .docx" className="hidden" />
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf, .doc, .docx, .zip" className="hidden" />
                                 <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={`w-full sm:w-auto ${isUploading ? 'bg-emerald-800 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'} text-white px-5 py-2.5 rounded-xl flex justify-center items-center gap-2 transition shadow-lg shadow-emerald-500/20 font-medium whitespace-nowrap`}>
                                     <UploadCloud size={20} className={isUploading ? 'animate-bounce' : ''} />
                                     <span>{isUploading ? 'Mengunggah...' : 'Upload Tugas'}</span>
@@ -432,16 +471,23 @@ export default function DrivePage() {
                                 />
                             ) : (
                                 <div className="text-center p-8 bg-gray-800 border border-gray-700 rounded-2xl max-w-md">
-                                    <FileText size={64} className="mx-auto text-blue-500 mb-4 opacity-80" />
+                                    {previewFile.name.toLowerCase().endsWith('.zip') ? (
+                                        <File size={64} className="mx-auto text-amber-400 mb-4 opacity-80" />
+                                    ) : (
+                                        <FileText size={64} className="mx-auto text-blue-500 mb-4 opacity-80" />
+                                    )}
                                     <h4 className="text-xl font-bold text-white mb-2">Pratinjau Tidak Tersedia</h4>
                                     <p className="text-gray-400 mb-6">
-                                        Browser tidak mendukung pratinjau langsung untuk file Word. Silakan unduh untuk membukanya.
+                                        {previewFile.name.toLowerCase().endsWith('.zip')
+                                            ? 'File ZIP tidak bisa dipratinjau di browser. Silakan unduh untuk mengekstraknya.'
+                                            : 'Browser tidak mendukung pratinjau langsung untuk file Word. Silakan unduh untuk membukanya.'
+                                        }
                                     </p>
                                     <a
                                         href={`${previewFile.file_url}?download=${encodeURIComponent(previewFile.name)}`}
                                         className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-500 transition shadow-lg shadow-emerald-500/20"
                                     >
-                                        <Download size={18} /> Download Dokumen
+                                        <Download size={18} /> Download {previewFile.name.toLowerCase().endsWith('.zip') ? 'File ZIP' : 'Dokumen'}
                                     </a>
                                 </div>
                             )}
@@ -449,6 +495,75 @@ export default function DrivePage() {
                     </div>
                 </div>
             )}
+
+            {/* TOAST NOTIFICATIONS */}
+            <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none" style={{ maxWidth: '420px' }}>
+                {toasts.map((toast) => {
+                    const config = {
+                        error: {
+                            icon: <XCircle size={22} className="flex-shrink-0" />,
+                            bg: 'bg-gradient-to-r from-red-950/90 to-gray-900/95',
+                            border: 'border-red-500/40',
+                            iconColor: 'text-red-400',
+                            progressColor: 'bg-red-500',
+                            shadow: 'shadow-red-500/10',
+                        },
+                        success: {
+                            icon: <CheckCircle size={22} className="flex-shrink-0" />,
+                            bg: 'bg-gradient-to-r from-emerald-950/90 to-gray-900/95',
+                            border: 'border-emerald-500/40',
+                            iconColor: 'text-emerald-400',
+                            progressColor: 'bg-emerald-500',
+                            shadow: 'shadow-emerald-500/10',
+                        },
+                        info: {
+                            icon: <Info size={22} className="flex-shrink-0" />,
+                            bg: 'bg-gradient-to-r from-blue-950/90 to-gray-900/95',
+                            border: 'border-blue-500/40',
+                            iconColor: 'text-blue-400',
+                            progressColor: 'bg-blue-500',
+                            shadow: 'shadow-blue-500/10',
+                        },
+                    }[toast.type];
+
+                    return (
+                        <div
+                            key={toast.id}
+                            className={`pointer-events-auto flex items-start gap-3 px-4 py-3.5 rounded-2xl border backdrop-blur-xl shadow-2xl ${config.bg} ${config.border} ${config.shadow} transition-all duration-500 ${
+                                toast.isExiting
+                                    ? 'opacity-0 translate-x-8 scale-95'
+                                    : 'opacity-100 translate-x-0 scale-100 animate-[slideInRight_0.4s_cubic-bezier(0.16,1,0.3,1)]'
+                            }`}
+                            style={{ minWidth: '300px' }}
+                        >
+                            <div className={`${config.iconColor} mt-0.5`}>
+                                {config.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-100 leading-relaxed">
+                                    {toast.message}
+                                </p>
+                                {/* Progress bar */}
+                                <div className="mt-2.5 h-[3px] w-full bg-gray-700/50 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full ${config.progressColor} rounded-full`}
+                                        style={{
+                                            animation: 'shrinkWidth 3.5s linear forwards',
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => dismissToast(toast.id)}
+                                className="text-gray-500 hover:text-gray-300 transition p-0.5 rounded-lg hover:bg-white/5 flex-shrink-0"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+
 
         </div>
     );

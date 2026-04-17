@@ -181,111 +181,219 @@ export default function JournalPage() {
 
             <main className="max-w-4xl mx-auto p-4 md:p-6 relative z-0 mt-4">
 
-                {/* GRAFIK STATISTIK MOOD (BARU DITAMBAHKAN) */}
+                {/* GRAFIK STATISTIK MOOD */}
                 {!isLoading && journals.length > 0 && (
-                    <div className="bg-gray-900/60 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-700/50 mb-10 overflow-hidden w-full">
-                        <h3 className="text-xl font-extrabold text-white mb-2 drop-shadow-md flex items-center gap-2">
-                            <Activity size={22} className="text-pink-400" /> Tren Mood (Terakhir)
-                        </h3>
-                        <p className="text-gray-400 text-sm mb-6">Melihat kembali fluktuasi perasaanmu hari demi hari secara horizontal.</p>
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/30 mb-10">
+                        {/* Gradient accent top bar */}
+                        <div className="h-1 w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500" />
                         
-                        <div className="w-full overflow-x-auto custom-scrollbar">
-                            <div className="min-w-[600px] h-48 md:h-56 relative w-full">
-                                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full drop-shadow-lg" preserveAspectRatio="none">
-                                    
-                                    {/* Garis Horizontal Panduan Skala 1 - 5 */}
-                                    {[1, 2, 3, 4, 5].map(v => {
-                                        const y = svgHeight - 40 - ((v - 1) / 4) * (svgHeight - 80);
-                                        return <line key={`grid-${v}`} x1="0" y1={y} x2={svgWidth} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="5 5" />
-                                    })}
-                                    
-                                    {/* Garis Utamanya */}
-                                    {points.length > 1 && (
-                                        <path d={pathD} fill="none" stroke="#ec4899" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(236,72,153,0.8)]" />
-                                    )}
+                        <div className="bg-gray-900/70 backdrop-blur-xl p-6 md:p-8 border border-gray-700/40 border-t-0">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="p-2.5 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                                    <Activity size={20} className="text-pink-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Tren Mood Kamu</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Fluktuasi perasaanmu dari hari ke hari</p>
+                                </div>
+                            </div>
+                            
+                            {/* Mood Scale Labels */}
+                            <div className="flex items-center gap-4 mt-5 mb-3">
+                                {MOODS.map(m => (
+                                    <div key={m.id} className="flex items-center gap-1 text-xs text-gray-500">
+                                        <span>{m.emoji}</span>
+                                        <span className="hidden sm:inline">{m.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="w-full overflow-x-auto custom-scrollbar rounded-xl bg-gray-800/30 border border-gray-700/30 p-3">
+                                <div className="min-w-[600px] h-48 md:h-56 relative w-full">
+                                    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full" preserveAspectRatio="none">
+                                        <defs>
+                                            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stopColor="#ec4899" />
+                                                <stop offset="50%" stopColor="#a855f7" />
+                                                <stop offset="100%" stopColor="#6366f1" />
+                                            </linearGradient>
+                                            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#ec4899" stopOpacity="0.25" />
+                                                <stop offset="100%" stopColor="#ec4899" stopOpacity="0.02" />
+                                            </linearGradient>
+                                            <filter id="glow">
+                                                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                                <feMerge>
+                                                    <feMergeNode in="coloredBlur"/>
+                                                    <feMergeNode in="SourceGraphic"/>
+                                                </feMerge>
+                                            </filter>
+                                        </defs>
+                                        
+                                        {/* Grid lines */}
+                                        {[1, 2, 3, 4, 5].map(v => {
+                                            const y = svgHeight - 40 - ((v - 1) / 4) * (svgHeight - 80);
+                                            return (
+                                                <g key={`grid-${v}`}>
+                                                    <line x1="30" y1={y} x2={svgWidth} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" strokeDasharray="4 6" />
+                                                </g>
+                                            );
+                                        })}
+                                        
+                                        {/* Area fill under line */}
+                                        {points.length > 1 && (
+                                            <path 
+                                                d={`${pathD} L ${points[points.length-1].x},${svgHeight - 40} L ${points[0].x},${svgHeight - 40} Z`} 
+                                                fill="url(#areaGradient)" 
+                                            />
+                                        )}
+                                        
+                                        {/* Main line */}
+                                        {points.length > 1 && (
+                                            <path d={pathD} fill="none" stroke="url(#lineGradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
+                                        )}
 
-                                    {/* Titik Point & Label Emoji */}
-                                    {points.map((p, i) => {
-                                        const moodObj = MOODS.find(m => m.id === p.mood) || MOODS[2];
-                                        return (
-                                            <g key={`point-${i}`} className="hover:opacity-80 transition cursor-crosshair">
-                                                <circle cx={p.x} cy={p.y} r="6" fill="#1f2937" stroke="#ec4899" strokeWidth="3" className="drop-shadow-lg"/>
-                                                <text x={p.x} y={p.y - 15} textAnchor="middle" fontSize="22" className="drop-shadow-sm">{moodObj.emoji}</text>
-                                                <text x={p.x} y={svgHeight - 5} textAnchor="middle" fill="#9ca3af" fontSize="11" fontWeight="500">{p.date}</text>
-                                            </g>
-                                        );
-                                    })}
-                                </svg>
+                                        {/* Data points */}
+                                        {points.map((p, i) => {
+                                            const moodObj = MOODS.find(m => m.id === p.mood) || MOODS[2];
+                                            return (
+                                                <g key={`point-${i}`} className="cursor-crosshair">
+                                                    {/* Outer glow ring */}
+                                                    <circle cx={p.x} cy={p.y} r="12" fill="rgba(236,72,153,0.1)" />
+                                                    {/* Main dot */}
+                                                    <circle cx={p.x} cy={p.y} r="5" fill="#111827" stroke="url(#lineGradient)" strokeWidth="2.5" />
+                                                    {/* Emoji above */}
+                                                    <text x={p.x} y={p.y - 18} textAnchor="middle" fontSize="18">{moodObj.emoji}</text>
+                                                    {/* Date below */}
+                                                    <text x={p.x} y={svgHeight - 8} textAnchor="middle" fill="#6b7280" fontSize="10" fontWeight="500">{p.date}</text>
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* FORM INPUT JURNAL HARI INI */}
-                <div className="bg-gray-900/60 backdrop-blur-md p-6 md:p-8 rounded-3xl shadow-xl border border-gray-700/50 mb-10 max-w-3xl mx-auto">
-                    <h2 className="text-2xl font-extrabold text-white mb-6 text-center drop-shadow-md">Bagaimana perasaanmu hari ini?</h2>
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/30 mb-10 max-w-3xl mx-auto">
+                    {/* Gradient accent top bar */}
+                    <div className="h-1 w-full bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500" />
                     
-                    {/* MOOD SELECTOR */}
-                    <div className="flex justify-center gap-3 md:gap-6 mb-8 flex-wrap">
-                        {MOODS.map(m => {
-                            const isSelected = selectedMood === m.id;
-                            return (
-                                <button 
-                                    key={m.id}
-                                    onClick={() => setSelectedMood(m.id)}
-                                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${isSelected ? "scale-110 " + m.color + " bg-opacity-20 shadow-lg " + m.glow + " border border-white/20" : "hover:bg-gray-800/50 grayscale opacity-60 hover:grayscale-0 hover:opacity-100"}`}
-                                >
-                                    <span className="text-4xl md:text-5xl drop-shadow-xl">{m.emoji}</span>
-                                    <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-400'}`}>{m.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {selectedMood && (
-                        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-                            <hr className="border-gray-700/50 mb-6" />
-                            <h3 className="text-lg font-bold text-gray-200 mb-4 text-center">Apa yang kamu lakukan hari ini?</h3>
-                            
-                            {/* ACTIVITY CHIPS */}
-                            <div className="flex flex-wrap justify-center gap-2 mb-8">
-                                {ACTIVITIES.map(act => {
-                                    const isSelected = selectedActivities.includes(act.id);
-                                    return (
-                                        <button
-                                            key={act.id}
-                                            onClick={() => toggleActivity(act.id)}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-sm font-medium ${isSelected ? 'bg-pink-600 border-pink-500 text-white shadow-lg shadow-pink-500/30' : 'bg-gray-800/80 border-gray-600/50 text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-                                        >
-                                            <span className="text-base">{act.emoji}</span>
-                                            {act.label}
-                                        </button>
-                                    );
-                                })}
+                    <div className="bg-gray-900/70 backdrop-blur-xl p-6 md:p-8 border border-gray-700/40 border-t-0 rounded-b-2xl">
+                        
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-pink-500/10 border border-pink-500/20 mb-3">
+                                <BookHeart size={24} className="text-pink-400" />
                             </div>
-
-                            {/* NOTE */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Ceritakan harimu (opsional)</label>
-                                <textarea
-                                    className="w-full px-4 py-3 bg-gray-900/80 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-white placeholder-gray-500 transition resize-none"
-                                    rows={3}
-                                    placeholder="Hari ini aku..."
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                ></textarea>
-                            </div>
-
-                            <button
-                                onClick={handleSaveJournal}
-                                disabled={isSubmitting}
-                                className={`w-full font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition shadow-lg text-white ${isSubmitting ? 'bg-pink-800 cursor-not-allowed' : 'bg-pink-600/90 hover:bg-pink-500 shadow-pink-500/20 backdrop-blur-sm'}`}
-                            >
-                                <Send size={20} />
-                                {isSubmitting ? 'Menyimpan...' : 'Simpan Jurnal'}
-                            </button>
+                            <h2 className="text-2xl font-extrabold text-white">Bagaimana perasaanmu hari ini?</h2>
+                            <p className="text-sm text-gray-400 mt-1">Pilih mood yang paling menggambarkan harimu</p>
                         </div>
-                    )}
+                        
+                        {/* MOOD SELECTOR - Premium Cards */}
+                        <div className="flex justify-center gap-3 md:gap-4 mb-8 flex-wrap">
+                            {MOODS.map(m => {
+                                const isSelected = selectedMood === m.id;
+                                return (
+                                    <button 
+                                        key={m.id}
+                                        onClick={() => setSelectedMood(m.id)}
+                                        className={`relative flex flex-col items-center gap-2 p-4 md:p-5 rounded-2xl transition-all duration-300 group ${
+                                            isSelected 
+                                                ? `scale-105 bg-gray-800/80 shadow-xl ${m.glow} ring-2 ring-offset-2 ring-offset-gray-900 ${
+                                                    m.id === 'rad' ? 'ring-emerald-400' : 
+                                                    m.id === 'good' ? 'ring-green-400' : 
+                                                    m.id === 'meh' ? 'ring-yellow-400' : 
+                                                    m.id === 'bad' ? 'ring-orange-400' : 'ring-red-400'
+                                                  }` 
+                                                : 'bg-gray-800/30 border border-gray-700/40 hover:bg-gray-800/60 hover:border-gray-600/60 hover:scale-105 opacity-70 hover:opacity-100'
+                                        }`}
+                                    >
+                                        {/* Selection indicator dot */}
+                                        {isSelected && (
+                                            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${m.color} shadow-lg ${m.glow} flex items-center justify-center`}>
+                                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                            </div>
+                                        )}
+                                        <span className={`text-4xl md:text-5xl transition-all duration-300 ${isSelected ? 'drop-shadow-xl scale-110' : 'grayscale group-hover:grayscale-0 drop-shadow-sm'}`}>{m.emoji}</span>
+                                        <span className={`text-xs md:text-sm font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'}`}>{m.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {selectedMood && (
+                            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                                {/* Divider with gradient */}
+                                <div className="relative my-6">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-gray-700/40" />
+                                    </div>
+                                    <div className="relative flex justify-center">
+                                        <span className="bg-gray-900/70 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Aktivitas Hari Ini</span>
+                                    </div>
+                                </div>
+                                
+                                {/* ACTIVITY CHIPS - Premium Style */}
+                                <div className="flex flex-wrap justify-center gap-2.5 mb-8">
+                                    {ACTIVITIES.map(act => {
+                                        const isSelected = selectedActivities.includes(act.id);
+                                        return (
+                                            <button
+                                                key={act.id}
+                                                onClick={() => toggleActivity(act.id)}
+                                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-200 text-sm font-medium ${
+                                                    isSelected 
+                                                        ? 'bg-gradient-to-r from-pink-600 to-rose-500 border-pink-400/50 text-white shadow-lg shadow-pink-500/20 scale-105' 
+                                                        : 'bg-gray-800/50 border-gray-600/40 text-gray-400 hover:bg-gray-800/80 hover:text-gray-200 hover:border-gray-500/50'
+                                                }`}
+                                            >
+                                                <span className={`text-base transition-transform ${isSelected ? 'scale-110' : ''}`}>{act.emoji}</span>
+                                                {act.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* NOTE - Premium textarea */}
+                                <div className="mb-6">
+                                    <div className="relative my-6">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-gray-700/40" />
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="bg-gray-900/70 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Catatan Harian</span>
+                                        </div>
+                                    </div>
+                                    <textarea
+                                        className="w-full px-4 py-3.5 bg-gray-800/50 border border-gray-600/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/70 focus:border-pink-500/40 focus:bg-gray-800/70 text-white placeholder-gray-500 transition-all resize-none text-sm"
+                                        rows={3}
+                                        placeholder="Hari ini aku merasa..."
+                                        value={note}
+                                        onChange={(e) => setNote(e.target.value)}
+                                    ></textarea>
+                                </div>
+
+                                <button
+                                    onClick={handleSaveJournal}
+                                    disabled={isSubmitting}
+                                    className={`relative w-full font-bold py-4 rounded-xl flex justify-center items-center gap-2.5 transition-all overflow-hidden group text-white ${
+                                        isSubmitting 
+                                            ? 'bg-pink-800 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 shadow-lg shadow-pink-500/25'
+                                    }`}
+                                >
+                                    <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <span className="relative flex items-center gap-2">
+                                        <Send size={20} />
+                                        {isSubmitting ? 'Menyimpan...' : 'Simpan Jurnal Hari Ini'}
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* TIMELINE RIWAYAT */}
