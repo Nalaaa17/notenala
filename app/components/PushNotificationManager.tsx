@@ -112,7 +112,7 @@ export default function PushNotificationManager() {
       if (error.name === 'NotAllowedError') {
         setMessage("Anda memblokir izin notifikasi. Aktifkan dari pengaturan browser.");
       } else {
-        setMessage("Terjadi kesalahan sistem pengaktifan.");
+        setMessage(`Terjadi kesalahan sistem: ${error.message || "Tidak diketahui"}`);
       }
       console.error(error);
     }
