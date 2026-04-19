@@ -107,7 +107,7 @@ function AppWindowMockup() {
           {/* Navbar seperti app */}
           <nav className="flex items-center gap-2 px-2.5 py-2 border-b border-gray-700/50 bg-gray-900/80 backdrop-blur-sm">
             <div className="h-7 w-7 rounded-full border-2 border-blue-500/50 overflow-hidden shrink-0 bg-white/5">
-              <Image src="/logo.png" alt="" width={28} height={28} className="object-cover w-full h-full" />
+              <Image src="/logo-v2.png" alt="" width={28} height={28} className="object-cover w-full h-full" />
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-1 rounded-xl bg-gray-950/50 border border-gray-600/70 px-2 py-1">
               <Search className="w-3 h-3 text-gray-400 shrink-0" />
@@ -266,7 +266,7 @@ function PhoneMockup() {
           <div className="h-0.5 w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full" />
           <div className="flex items-center gap-1.5 py-1 border-b border-gray-700/50">
             <div className="h-6 w-6 rounded-full border border-blue-500/40 overflow-hidden shrink-0">
-              <Image src="/logo.png" alt="" width={24} height={24} className="object-cover w-full h-full" />
+              <Image src="/logo-v2.png" alt="" width={24} height={24} className="object-cover w-full h-full" />
             </div>
             <div className="flex-1 flex items-center gap-1 rounded-lg bg-gray-950/50 border border-gray-600/60 px-1.5 py-0.5 min-w-0">
               <Search className="w-2.5 h-2.5 text-gray-400 shrink-0" />
@@ -438,7 +438,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-3 sm:px-6 min-h-14 sm:h-16 flex items-center justify-between gap-3">
           <Link href="/landing" className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0 py-2">
             <span className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-blue-500/35 overflow-hidden shadow-md shadow-blue-500/10 shrink-0">
-              <Image src="/logo.png" alt="NoteNala" fill className="object-cover" sizes="40px" />
+              <Image src="/logo-v2.png" alt="NoteNala" fill className="object-cover" sizes="40px" />
             </span>
             <span className="font-bold text-base sm:text-lg tracking-tight bg-gradient-to-r from-blue-700 via-purple-700 to-pink-600 bg-clip-text text-transparent truncate">
               NoteNala
@@ -705,7 +705,7 @@ export default function LandingPage() {
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2.5">
                 <span className="relative h-10 w-10 rounded-full overflow-hidden border border-slate-700 ring-2 ring-blue-500/20">
-                  <Image src="/logo.png" alt="" fill className="object-cover" sizes="40px" />
+                  <Image src="/logo-v2.png" alt="" fill className="object-cover" sizes="40px" />
                 </span>
                 <span className="font-bold text-lg text-white tracking-tight">NoteNala</span>
               </div>

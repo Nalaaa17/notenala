@@ -641,7 +641,7 @@ export default function LandingPage() {
           {/* Kiri: Logo */}
           <div className="flex-shrink-0">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-blue-500/50 shadow-sm shadow-blue-500/20 flex items-center justify-center overflow-hidden bg-white/5">
-              <img src="/logo.png" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
+              <img src="/logo-v2.png" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
             </div>
           </div>
 

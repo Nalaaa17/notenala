@@ -135,7 +135,7 @@ export default function LoginPage() {
     "w-full rounded-xl border border-gray-700 bg-gray-900 py-2.5 sm:py-3 pl-10 pr-3 text-sm text-gray-100 placeholder:text-gray-500 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 min-w-0";
 
   const formShell =
-    "flex h-full min-h-0 w-1/2 shrink-0 flex-col justify-center px-5 py-6 sm:px-7 sm:py-8";
+    "flex h-full min-h-0 w-full md:w-1/2 shrink-0 flex-col justify-center px-5 py-6 sm:px-7 sm:py-8 overflow-y-auto";
 
   return (
     <div className="flex min-h-screen min-h-[100dvh] items-center justify-center bg-gray-900 p-4 text-gray-100">
@@ -154,7 +154,7 @@ export default function LoginPage() {
         )}
 
         <div
-          className="relative flex h-[520px] min-h-[400px] w-full max-h-[90dvh] flex-col overflow-hidden rounded-3xl border border-gray-700 bg-gray-800 shadow-2xl motion-safe:animate-[login-mobile-enter_0.5s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none max-sm:h-[min(520px,90dvh)]"
+          className="relative flex h-auto min-h-[550px] md:h-[520px] md:min-h-[400px] w-full max-h-[90dvh] flex-col overflow-hidden rounded-3xl border border-gray-700 bg-gray-800 shadow-2xl motion-safe:animate-[login-mobile-enter_0.5s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
         >
           <div className="relative z-30 flex h-12 shrink-0 items-center border-b border-gray-700/60 px-3 sm:px-4">
             <Link
@@ -168,13 +168,13 @@ export default function LoginPage() {
 
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-0 flex">
-              {/* Kolom kiri: hanya form masuk — hindari dua input terkontrol yang sama di DOM */}
-              <div className={`${formShell} border-r border-gray-700/50`}>
+              {/* Kolom kiri: form masuk di mobile atau flex kiri di desktop */}
+              <div className={`${formShell} md:border-r border-gray-700/50 ${isLogin ? "flex" : "hidden md:flex"}`}>
                 {isLogin ? (
                   <>
                     <div className="mb-4 flex flex-col items-center sm:mb-5">
                       <div className="relative mb-3 h-14 w-14 overflow-hidden rounded-full border-[3px] border-blue-500/30 shadow-lg sm:h-16 sm:w-16">
-                        <Image src="/logo.png" alt="NoteNala" fill className="object-cover" sizes="64px" />
+                        <Image src="/logo-v2.png" alt="NoteNala" fill className="object-cover" sizes="64px" />
                       </div>
                       <h1 className="text-center text-lg font-bold text-white sm:text-xl">Masuk</h1>
                       <p className="mt-1 text-center text-xs text-gray-400 sm:text-sm">Gunakan email dan passwordmu</p>
@@ -245,21 +245,34 @@ export default function LoginPage() {
                         {!isLoading && <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />}
                       </button>
                     </form>
+                    {/* Toggle Mode Register di Mobile */}
+                    <div className="mt-6 flex justify-center md:hidden">
+                      <p className="text-xs text-gray-400">
+                        Baru di NoteNala?{" "}
+                        <button
+                          type="button"
+                          onClick={() => switchMode(false)}
+                          className="font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          Daftar di sini
+                        </button>
+                      </p>
+                    </div>
                   </>
                 ) : (
-                  <div className="flex flex-1 flex-col items-center justify-center opacity-30" aria-hidden>
+                  <div className="hidden flex-1 flex-col items-center justify-center opacity-30 md:flex" aria-hidden>
                     <p className="text-xs text-gray-500">← Geser panel untuk masuk</p>
                   </div>
                 )}
               </div>
 
-              {/* Kolom kanan: hanya form daftar */}
-              <div className={formShell}>
+              {/* Kolom kanan: form daftar di mobile atau flex kanan di desktop  */}
+              <div className={`${formShell} ${!isLogin ? "flex" : "hidden md:flex"}`}>
                 {!isLogin ? (
                   <>
                     <div className="mb-4 flex flex-col items-center sm:mb-5">
                       <div className="relative mb-3 h-14 w-14 overflow-hidden rounded-full border-[3px] border-blue-500/30 shadow-lg sm:h-16 sm:w-16">
-                        <Image src="/logo.png" alt="NoteNala" fill className="object-cover" sizes="64px" />
+                        <Image src="/logo-v2.png" alt="NoteNala" fill className="object-cover" sizes="64px" />
                       </div>
                       <h1 className="text-center text-lg font-bold text-white sm:text-xl">Buat akun</h1>
                       <p className="mt-1 text-center text-xs text-gray-400 sm:text-sm">Mulai catat tugas di NoteNala</p>
@@ -316,9 +329,22 @@ export default function LoginPage() {
                         {!isLoading && <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />}
                       </button>
                     </form>
+                    {/* Toggle Mode Login di Mobile */}
+                    <div className="mt-6 flex justify-center md:hidden">
+                      <p className="text-xs text-gray-400">
+                        Sudah punya akun?{" "}
+                        <button
+                          type="button"
+                          onClick={() => switchMode(true)}
+                          className="font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          Masuk di sini
+                        </button>
+                      </p>
+                    </div>
                   </>
                 ) : (
-                  <div className="flex flex-1 flex-col items-center justify-center opacity-30" aria-hidden>
+                  <div className="hidden flex-1 flex-col items-center justify-center opacity-30 md:flex" aria-hidden>
                     <p className="text-xs text-gray-500">Geser panel untuk daftar →</p>
                   </div>
                 )}
@@ -326,7 +352,7 @@ export default function LoginPage() {
             </div>
 
             <div
-              className={`absolute inset-0 z-20 w-1/2 bg-blue-600 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+              className={`absolute inset-0 z-20 w-1/2 bg-blue-600 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none hidden md:block ${
                 isLogin ? "left-1/2 translate-x-0" : "left-1/2 -translate-x-full"
               }`}
             >
