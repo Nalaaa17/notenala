@@ -120,6 +120,36 @@ export default function PushNotificationManager() {
     setLoading(false);
   }
 
+  async function unsubscribeFromPush() {
+    if (!subscription) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      // Hapus izin langsung dari browser
+      const successful = await subscription.unsubscribe();
+      if (successful) {
+        setSubscription(null);
+        setMessage("Notifikasi berhasil dimatikan.");
+        
+        // Opsional: Beritahu backend untuk menghapus endpoint ini dari database
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+           await fetch("/api/web-push/subscribe", {
+             method: "DELETE",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ endpoint: subscription.endpoint, userId: user.id }),
+           }).catch(() => {});
+        }
+      } else {
+        setMessage("Tidak dapat membatalkan langganan di browser.");
+      }
+    } catch (error) {
+      console.error("Gagal mematikan notifikasi:", error);
+      setMessage("Terjadi kesalahan saat mematikan notifikasi.");
+    }
+    setLoading(false);
+  }
+
   if (!isSupported) {
     return (
       <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 text-sm text-gray-400">
@@ -145,19 +175,19 @@ export default function PushNotificationManager() {
       </div>
 
       <button
-        onClick={subscribeToPush}
-        disabled={loading || !!subscription}
-        className={`px-5 py-2.5 rounded-xl font-bold transition whitespace-nowrap flex items-center gap-2 ${
+        onClick={subscription ? unsubscribeFromPush : subscribeToPush}
+        disabled={loading}
+        className={`px-5 py-2.5 rounded-xl font-bold transition whitespace-nowrap flex items-center gap-2 shadow-lg ${
           subscription
-            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+            ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-500/20'
+            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
         }`}
       >
         {loading && <Loader2 size={16} className="animate-spin" />}
-        {!loading && subscription ? 'Sedang Aktif' : 'Aktifkan'}
+        {!loading && subscription ? 'Matikan' : 'Aktifkan'}
       </button>
 
-      {message && <p className="text-xs text-blue-400 font-medium w-full text-center sm:hidden mt-2">{message}</p>}
+      {message && <p className="text-xs text-blue-400 font-medium w-full text-center mt-2">{message}</p>}
     </div>
   );
 }

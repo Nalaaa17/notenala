@@ -59,3 +59,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { endpoint, userId } = await req.json();
+
+    if (!endpoint || !userId) {
+      return NextResponse.json({ error: "Missing endpoint or user ID" }, { status: 400 });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('endpoint', endpoint);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: "Subscription deleted!" });
+  } catch (error: any) {
+    console.error("Gagal menghapus langganan push:", error);
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+  }
+}
