@@ -97,7 +97,6 @@ export default function PushNotificationManager() {
         return;
       }
 
-      // Simpan langganan ke Backend kita yang nantinya disimpan ke Supabase
       const res = await fetch("/api/web-push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,7 +106,8 @@ export default function PushNotificationManager() {
       if (res.ok) {
         setMessage("Berhasil mengaktifkan notifikasi perangkat!");
       } else {
-        setMessage("Gagal menyimpan izin notifikasi di server.");
+        const errorData = await res.json().catch(() => ({}));
+        setMessage(`Gagal menyimpan ke server: ${errorData.error || res.statusText}`);
       }
     } catch (error: any) {
       if (error.name === 'NotAllowedError') {
