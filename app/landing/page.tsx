@@ -413,9 +413,19 @@ export default function LandingPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) router.replace("/");
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        router.replace("/");
+      }
     });
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
   useEffect(() => {

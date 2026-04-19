@@ -143,17 +143,30 @@ export default function LandingPage() {
   // --- CEK LOGIN & AMBIL DATA SAAT DIBUKA ---
   useEffect(() => {
     const checkUserAndFetchData = async () => {
-      supabase.auth.onAuthStateChange(async (event) => {
+      supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           window.location.href = "/reset-password";
           return;
         }
+        if (event === "SIGNED_IN" && session) {
+          const hasAuthParams = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
+          if (hasAuthParams) {
+            window.location.replace("/");
+          } else if (!user) {
+            setUser(session.user);
+          }
+        }
       });
+
+      const isAuthCallback = window.location.search.includes('code=') || 
+                             window.location.hash.includes('access_token=') || 
+                             window.location.hash.includes('type=signup') ||
+                             window.location.search.includes('error=');
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        if (!window.location.hash.includes('type=recovery')) {
+        if (!window.location.hash.includes('type=recovery') && !isAuthCallback) {
           window.location.href = "/landing";
         }
         return;
