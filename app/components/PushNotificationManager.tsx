@@ -70,31 +70,32 @@ export default function PushNotificationManager() {
 
   async function subscribeToPush() {
     setLoading(true);
+    setMessage(""); // Reset pesan sebelumnya
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setMessage("Silakan login terlebih dahulu.");
-        setLoading(false);
-        return;
-      }
-
       const registration = await navigator.serviceWorker.ready;
-      /*
-       * Ganti kunci VAPID publik ini dengan memanggil env Anda
-       */
-      const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+      
+      const publicVapidKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
       if (!publicVapidKey) {
         setMessage("Kunci VAPID belum dikonfigurasi oleh admin.");
         setLoading(false);
         return;
       }
 
+      // HARUS dipanggil langsung setelah interaksi user, jangan di-delay oleh request network (seperti get user)
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: await urlBase64ToUint8Array(publicVapidKey),
       });
 
       setSubscription(sub);
+
+      // SETELAH browser memberikan izin, baru kita validasi user dan kirim ke database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setMessage("Perangkat diizinkan! Namun Anda harus login agar tersambung.");
+        setLoading(false);
+        return;
+      }
 
       // Simpan langganan ke Backend kita yang nantinya disimpan ke Supabase
       const res = await fetch("/api/web-push/subscribe", {
