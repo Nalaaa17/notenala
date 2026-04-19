@@ -286,6 +286,12 @@ export default function ProfilePage() {
                                 </div>
                             </section>
 
+                            {/* Seksi 4: Notifikasi PWA */}
+                            <section>
+                                <h3 className="text-lg font-bold text-green-400 mb-4 border-b border-gray-700 pb-2">Notifikasi & Alarm</h3>
+                                <PushNotificationManager />
+                            </section>
+
                             <button type="submit" disabled={saving} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 mt-4 text-lg">
                                 {saving ? <Loader2 className="animate-spin" size={22} /> : <Save size={22} />}
                                 {saving ? "Menyimpan Perubahan..." : "Simpan Semua Perubahan"}

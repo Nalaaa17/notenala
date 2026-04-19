@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   description: "Platform simpan tugas dan catatan praktis",
   manifest: "/manifest.json",
   icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg"
+    icon: "/logo.png",
+    apple: "/logo.png"
   },
   appleWebApp: {
     capable: true,

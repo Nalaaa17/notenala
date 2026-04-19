@@ -154,7 +154,7 @@ export default function LandingPage() {
 
       if (authError || !user) {
         if (!window.location.hash.includes('type=recovery')) {
-          window.location.href = "/login";
+          window.location.href = "/landing";
         }
         return;
       }
@@ -202,6 +202,22 @@ export default function LandingPage() {
 
     checkUserAndFetchData();
   }, [user?.id]);
+
+  // --- SET APP BADGE INDIKATOR PWA ---
+  useEffect(() => {
+    if ('setAppBadge' in navigator && 'clearAppBadge' in navigator && user) {
+      const pendingCount = tasks.filter(task => !task.completed).length;
+      try {
+        if (pendingCount > 0) {
+          navigator.setAppBadge(pendingCount);
+        } else {
+          navigator.clearAppBadge();
+        }
+      } catch (err) {
+        console.error("Gagal memasang App Badge:", err);
+      }
+    }
+  }, [tasks, user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -625,7 +641,7 @@ export default function LandingPage() {
           {/* Kiri: Logo */}
           <div className="flex-shrink-0">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-blue-500/50 shadow-sm shadow-blue-500/20 flex items-center justify-center overflow-hidden bg-white/5">
-              <img src="/logo.jpg" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full rounded-full object-cover object-center" />
             </div>
           </div>
 
@@ -768,7 +784,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex gap-2 items-center">
                       {/* AI Vision Kamera */}
-                      <input type="file" hidden accept="image/*" capture="environment" ref={fileInputRef} onChange={handleImageUpload} />
+                      <input type="file" hidden accept="image/*" ref={fileInputRef} onChange={handleImageUpload} />
                       <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isProcessingVoice || isProcessingVision} className={`p-2 md:p-2.5 rounded-xl transition shadow-sm ${isProcessingVision ? "bg-purple-500/20 text-purple-400 border border-purple-500/50 cursor-wait animate-pulse" : "bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-blue-400 hover:border-blue-500/30 hover:bg-gray-800"}`} title="Pindai Gambar Tugas (AI Vision)">
                          <ImagePlus size={18} />
                       </button>
