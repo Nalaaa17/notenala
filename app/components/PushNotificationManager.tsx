@@ -93,7 +93,16 @@ export default function PushNotificationManager() {
         return;
       }
 
-      const sub = await registration.pushManager.subscribe({
+      // Hancurkan / Unsubscribe langganan hantu yang mungkin stuck di browser
+      // Ini sangat penting untuk mengatasi error 'push service error' jika browser
+      // masih mengingat token/kunci yang lama dan menolak menimpanya.
+      let sub = await registration.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe().catch(() => {});
+      }
+
+      // Daftar ulang dengan environment key yang paling fresh
+      sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: await urlBase64ToUint8Array(publicVapidKey),
       });
