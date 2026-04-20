@@ -69,6 +69,18 @@ export default function PushNotificationManager() {
   }
 
   async function subscribeToPush() {
+    // Safari iOS SANGAT KETAT: requestPermission harus menjadi hal pertama yang dipanggil
+    // langsung dari klik tombol, tidak boleh ada 'await' lain sebelumnya.
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setMessage("Izin ditolak atau diblokir oleh perangkat.");
+        return;
+      }
+    } catch (err) {
+      console.error("Permission request error:", err);
+    }
+
     setLoading(true);
     setMessage(""); // Reset pesan sebelumnya
     try {
@@ -77,15 +89,6 @@ export default function PushNotificationManager() {
       const publicVapidKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
       if (!publicVapidKey) {
         setMessage("Kunci VAPID belum dikonfigurasi oleh admin.");
-        setLoading(false);
-        return;
-      }
-
-      // HARUS dipanggil langsung setelah interaksi user
-      // Minta izin secara eksplisit (Sangat penting untuk HP terutama iOS/iPhone)
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setMessage("Izin ditolak atau diblokir oleh perangkat.");
         setLoading(false);
         return;
       }
