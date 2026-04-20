@@ -81,7 +81,15 @@ export default function PushNotificationManager() {
         return;
       }
 
-      // HARUS dipanggil langsung setelah interaksi user, jangan di-delay oleh request network (seperti get user)
+      // HARUS dipanggil langsung setelah interaksi user
+      // Minta izin secara eksplisit (Sangat penting untuk HP terutama iOS/iPhone)
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setMessage("Izin ditolak atau diblokir oleh perangkat.");
+        setLoading(false);
+        return;
+      }
+
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: await urlBase64ToUint8Array(publicVapidKey),
