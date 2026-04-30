@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase'; // Sesuaikan path ini jika perlu
+import { supabase } from '../lib/supabase';
 import { getCachedTasks, saveTasksToCache, addSyncQueue, getSyncQueue, removeSyncQueueItem } from './utils/db';
+import SwipeableTaskCard from './components/SwipeableTaskCard';
 import {
   PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2,
   Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search, User, LogOut, Coffee, BookHeart, Menu, Bot, Sparkles,
   ListChecks, Plus, ChevronDown, ChevronUp, Square, CheckSquare,
-  Tag, AlertCircle, GraduationCap, Briefcase, Loader2, Mic, Wifi, WifiOff, ImagePlus
+  Tag, AlertCircle, GraduationCap, Briefcase, Loader2, Mic, Wifi, WifiOff, ImagePlus, AlarmClock
 } from 'lucide-react';
 
 // Struktur data
@@ -15,6 +16,7 @@ interface Task {
   title: string;
   note: string;
   due_date: string | null;
+  due_time?: string | null;
   completed: boolean;
   user_id?: string;
   category?: string;
@@ -39,6 +41,7 @@ export default function LandingPage() {
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -46,6 +49,7 @@ export default function LandingPage() {
 
   // STATE: Autentikasi & UI Profil
   const [user, setUser] = useState<any>(null);
+  const [userName, setUserName] = useState<string>("");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -65,10 +69,14 @@ export default function LandingPage() {
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
+  // Reminder scheduler refs
+  const schedulerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   // AI Vision
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessingVision, setIsProcessingVision] = useState(false);
   const [draftSubtasks, setDraftSubtasks] = useState<string[]>([]);
+  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true); // DEFAULT: Selesai dilipat
 
   // STATE: Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -79,6 +87,56 @@ export default function LandingPage() {
     setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // --- CLIENT-SIDE REMINDER SCHEDULER ---
+  useEffect(() => {
+    // Bersihkan timer lama sebelum pasang yang baru
+    schedulerRef.current.forEach(clearTimeout);
+    schedulerRef.current = [];
+
+    if (!user || tasks.length === 0) return;
+
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-CA'); // Format YYYY-MM-DD
+
+    tasks.forEach((task) => {
+      // Hanya jadwalkan jika: belum selesai, punya due_date hari ini, punya due_time
+      if (task.completed || !task.due_date || !task.due_time) return;
+      if (task.due_date !== todayStr) return;
+
+      const [hours, minutes] = task.due_time.split(':').map(Number);
+      const reminderTime = new Date();
+      reminderTime.setHours(hours, minutes, 0, 0);
+
+      const msUntilReminder = reminderTime.getTime() - now.getTime();
+      if (msUntilReminder <= 0) return; // Sudah lewat, skip
+
+      const timer = setTimeout(async () => {
+        try {
+          await fetch('/api/send-reminder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              taskId: task.id,
+              taskTitle: task.title,
+              taskNote: task.note,
+              dueTime: task.due_time,
+            }),
+          });
+        } catch (err) {
+          console.error('Gagal kirim reminder:', err);
+        }
+      }, msUntilReminder);
+
+      schedulerRef.current.push(timer);
+    });
+
+    return () => {
+      schedulerRef.current.forEach(clearTimeout);
+      schedulerRef.current = [];
+    };
+  }, [tasks, user]);
 
   // OFFLINE INDICATOR DETECTOR
   useEffect(() => {
@@ -97,7 +155,7 @@ export default function LandingPage() {
   const flushSyncQueue = async () => {
     const queue = await getSyncQueue();
     if (queue.length === 0) return;
-    
+
     showToast(`Mensinkronisasi ${queue.length} tugas ke database...`, "success");
     let hasError = false;
 
@@ -109,13 +167,13 @@ export default function LandingPage() {
           if (error) throw error;
         } else if (item.action === 'UPDATE') {
           if (item.payload.id > 0) {
-              const { error } = await supabase.from('tasks').update(item.payload).eq('id', item.payload.id);
-              if (error) throw error;
+            const { error } = await supabase.from('tasks').update(item.payload).eq('id', item.payload.id);
+            if (error) throw error;
           }
         } else if (item.action === 'DELETE') {
           if (item.payload.id > 0) {
-             const { error } = await supabase.from('tasks').delete().eq('id', item.payload.id);
-             if (error) throw error;
+            const { error } = await supabase.from('tasks').delete().eq('id', item.payload.id);
+            if (error) throw error;
           }
         }
         await removeSyncQueueItem(item.id!);
@@ -124,15 +182,15 @@ export default function LandingPage() {
         hasError = true;
       }
     }
-    
+
     if (!hasError) {
       showToast("Tugas luring berhasil disinkronkan ke server!", "success");
       // Refetch from supabase to get real IDs
       if (user) {
         const { data } = await supabase.from('tasks').select('*').order('id', { ascending: false });
         if (data) {
-            setTasks(data);
-            saveTasksToCache(data);
+          setTasks(data);
+          saveTasksToCache(data);
         }
       }
     } else {
@@ -158,10 +216,10 @@ export default function LandingPage() {
         }
       });
 
-      const isAuthCallback = window.location.search.includes('code=') || 
-                             window.location.hash.includes('access_token=') || 
-                             window.location.hash.includes('type=signup') ||
-                             window.location.search.includes('error=');
+      const isAuthCallback = window.location.search.includes('code=') ||
+        window.location.hash.includes('access_token=') ||
+        window.location.hash.includes('type=signup') ||
+        window.location.search.includes('error=');
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -174,6 +232,18 @@ export default function LandingPage() {
 
       setUser(user);
       setIsLoading(true);
+
+      // Ambil profile nama user
+      if (navigator.onLine) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        setUserName(profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "Pengguna");
+      } else {
+        setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || "Pengguna");
+      }
 
       // Ambil lokal cache IDB dulu biar PWA cepat! Ajaib!!
       const localTasks = await getCachedTasks();
@@ -237,9 +307,10 @@ export default function LandingPage() {
     window.location.href = "/login";
   };
 
-  const getDaysLeftInfo = (dateString: string | null) => {
+  const getDaysLeftInfo = (dateString: string | null, dueTime?: string | null) => {
     if (!dateString) return null;
 
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const targetDate = new Date(dateString);
@@ -248,36 +319,80 @@ export default function LandingPage() {
     const diffTime = targetDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return { text: "Tenggat Hari Ini! 🚨", color: "text-red-400 bg-red-400/10 border-red-400/20" };
-    if (diffDays === 1) return { text: "Besok! ⏰", color: "text-orange-400 bg-orange-400/10 border-orange-400/20" };
-    if (diffDays > 1 && diffDays <= 3) return { text: `${diffDays} hari lagi`, color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" };
-    if (diffDays > 3) return { text: `${diffDays} hari lagi`, color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" };
-    return { text: `Terlambat ${Math.abs(diffDays)} hari ❌`, color: "text-red-500 bg-red-500/10 border-red-500/20" };
+    // Kalau hari ini dan ada due_time → hitung jam & menit yang tersisa
+    if (diffDays === 0 && dueTime) {
+      const [h, m] = dueTime.split(':').map(Number);
+      const reminderTime = new Date();
+      reminderTime.setHours(h, m, 0, 0);
+      const msLeft = reminderTime.getTime() - now.getTime();
+
+      if (msLeft <= 0) {
+        const minsLate = Math.abs(Math.round(msLeft / 60000));
+        if (minsLate < 60) return { text: `Terlambat ${minsLate} mnt ❌`, color: 'text-red-500 bg-red-500/10 border-red-500/20' };
+        const hLate = Math.floor(minsLate / 60);
+        const minRem = minsLate % 60;
+        return { text: `Terlambat ${hLate}j ${minRem > 0 ? minRem + 'mnt' : ''} ❌`, color: 'text-red-500 bg-red-500/10 border-red-500/20' };
+      }
+
+      const totalMins = Math.round(msLeft / 60000);
+      if (totalMins < 60) return { text: `${totalMins} mnt lagi ⚡`, color: 'text-red-400 bg-red-400/10 border-red-400/20' };
+      const hours = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      return {
+        text: `${hours} jam${mins > 0 ? ` ${mins} mnt` : ''} lagi`,
+        color: hours <= 2 ? 'text-orange-400 bg-orange-400/10 border-orange-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20'
+      };
+    }
+
+    if (diffDays === 0) return { text: 'Tenggat Hari Ini! 🚨', color: 'text-red-400 bg-red-400/10 border-red-400/20' };
+
+    // Untuk hari > 0, sertakan jam tersisa jika ada due_time
+    if (dueTime) {
+      const [h, m] = dueTime.split(':').map(Number);
+      const reminderFull = new Date(dateString);
+      reminderFull.setHours(h, m, 0, 0);
+      const msLeft = reminderFull.getTime() - now.getTime();
+      const totalHours = Math.floor(msLeft / (1000 * 60 * 60));
+      const days = Math.floor(totalHours / 24);
+      const hoursRem = totalHours % 24;
+
+      const suffix = hoursRem > 0 ? ` ${hoursRem} jam lagi` : ' lagi';
+
+      if (diffDays === 1) return { text: `Besok, ${hoursRem} jam lagi ⏰`, color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' };
+      if (diffDays <= 3) return { text: `${days} hari${hoursRem > 0 ? ` ${hoursRem} jam` : ''} lagi`, color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' };
+      return { text: `${days} hari${hoursRem > 0 ? ` ${hoursRem} jam` : ''} lagi`, color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' };
+    }
+
+    if (diffDays === 1) return { text: 'Besok! ⏰', color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' };
+    if (diffDays > 1 && diffDays <= 3) return { text: `${diffDays} hari lagi`, color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' };
+    if (diffDays > 3) return { text: `${diffDays} hari lagi`, color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' };
+    return { text: `Terlambat ${Math.abs(diffDays)} hari ❌`, color: 'text-red-500 bg-red-500/10 border-red-500/20' };
   };
 
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !user) return;
     const finalDueDate = dueDate === "" ? null : dueDate;
+    const finalDueTime = dueTime === "" ? null : dueTime;
 
     if (editingId !== null) {
       const { error } = await supabase
         .from('tasks')
-        .update({ title, note, due_date: finalDueDate, category: taskCategory })
+        .update({ title, note, due_date: finalDueDate, due_time: finalDueTime, category: taskCategory })
         .eq('id', editingId);
 
       if (!error) {
         setTasks(tasks.map(task =>
-          task.id === editingId ? { ...task, title, note, due_date: finalDueDate, category: taskCategory } : task
+          task.id === editingId ? { ...task, title, note, due_date: finalDueDate, due_time: finalDueTime, category: taskCategory } : task
         ));
         saveTasksToCache(tasks.map(task =>
-          task.id === editingId ? { ...task, title, note, due_date: finalDueDate, category: taskCategory } : task
+          task.id === editingId ? { ...task, title, note, due_date: finalDueDate, due_time: finalDueTime, category: taskCategory } : task
         ));
         setEditingId(null);
       }
     } else {
-      const newTaskData = { title, note, due_date: finalDueDate, completed: false, user_id: user.id, category: taskCategory, created_at: new Date().toISOString() };
-      
+      const newTaskData = { title, note, due_date: finalDueDate, due_time: finalDueTime, completed: false, user_id: user.id, category: taskCategory, created_at: new Date().toISOString() };
+
       if (!isOnline) {
         const tempId = -Math.round(Math.random() * 1000000000);
         const optimisticTask = { id: tempId, ...newTaskData };
@@ -303,12 +418,12 @@ export default function LandingPage() {
         saveTasksToCache([data[0], ...tasks]);
 
         if (draftSubtasks.length > 0) {
-           const newSubs = draftSubtasks.map(t => ({ task_id: newTaskId, title: t, completed: false }));
-           const { data: insertedSubs } = await supabase.from('subtasks').insert(newSubs).select();
-           if (insertedSubs) {
-               setSubtasksMap(prev => ({ ...prev, [newTaskId]: insertedSubs }));
-               setExpandedTasks(prev => new Set(prev).add(newTaskId));
-           }
+          const newSubs = draftSubtasks.map(t => ({ task_id: newTaskId, title: t, completed: false }));
+          const { data: insertedSubs } = await supabase.from('subtasks').insert(newSubs).select();
+          if (insertedSubs) {
+            setSubtasksMap(prev => ({ ...prev, [newTaskId]: insertedSubs }));
+            setExpandedTasks(prev => new Set(prev).add(newTaskId));
+          }
         }
 
         showToast("Tugas berhasil ditambahkan!", "success");
@@ -320,6 +435,7 @@ export default function LandingPage() {
     setTitle("");
     setNote("");
     setDueDate("");
+    setDueTime("");
     setTaskCategory("Biasa");
     setDraftSubtasks([]);
   };
@@ -329,8 +445,8 @@ export default function LandingPage() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-       showToast("Format file tidak didukung. Harap unggah gambar.", "error");
-       return;
+      showToast("Format file tidak didukung. Harap unggah gambar.", "error");
+      return;
     }
 
     setIsProcessingVision(true);
@@ -339,34 +455,35 @@ export default function LandingPage() {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = async () => {
-       const base64Str = reader.result as string;
-       const pureBase64 = base64Str.split(',')[1];
-       
-       try {
-          const response = await fetch('/api/parse-vision', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: pureBase64, mimeType: file.type })
-          });
-          const data = await response.json();
-          if (data.error) throw new Error(data.error);
+      const base64Str = reader.result as string;
+      const pureBase64 = base64Str.split(',')[1];
 
-          if (data.title) setTitle(data.title);
-          if (data.due_date) setDueDate(data.due_date);
-          if (data.category) setTaskCategory(data.category);
-          if (data.note) setNote(data.note);
-          if (data.subtasks && Array.isArray(data.subtasks) && data.subtasks.length > 0) {
-             setDraftSubtasks(data.subtasks);
-          }
-          
-          showToast("AI Vision berhasil mengurai gambar!", "success");
-       } catch (err: any) {
-          console.error("Vision AI Error:", err);
-          showToast(err.message || "Gagal memproses gambar dengan AI.", "error");
-       } finally {
-          setIsProcessingVision(false);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-       }
+      try {
+        const response = await fetch('/api/parse-vision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: pureBase64, mimeType: file.type })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        if (data.title) setTitle(data.title);
+        if (data.due_date) setDueDate(data.due_date);
+        if (data.due_time) setDueTime(data.due_time);
+        if (data.category) setTaskCategory(data.category);
+        if (data.note) setNote(data.note);
+        if (data.subtasks && Array.isArray(data.subtasks) && data.subtasks.length > 0) {
+          setDraftSubtasks(data.subtasks);
+        }
+
+        showToast("AI Vision berhasil mengurai gambar!", "success");
+      } catch (err: any) {
+        console.error("Vision AI Error:", err);
+        showToast(err.message || "Gagal memproses gambar dengan AI.", "error");
+      } finally {
+        setIsProcessingVision(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     };
   };
 
@@ -392,24 +509,25 @@ export default function LandingPage() {
       setIsRecording(false);
       setIsProcessingVoice(true);
       showToast("Menganalisis suaramu dengan AI...", "success");
-      
+
       try {
         const response = await fetch('/api/parse-voice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transcript })
         });
-        
+
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
         if (data.title) setTitle(data.title);
         if (data.due_date) setDueDate(data.due_date);
+        if (data.due_time) setDueTime(data.due_time);
         if (data.category) setTaskCategory(data.category);
-        
+
         // Gabungkan catatan jika ada, biarkan yang sebelumnya
         if (data.note) {
-           setNote(prev => prev ? `${prev} ${data.note}` : data.note);
+          setNote(prev => prev ? `${prev} ${data.note}` : data.note);
         }
 
         showToast(`Voila! Sihir AI berhasil mengisi formmu.`, "success");
@@ -441,6 +559,7 @@ export default function LandingPage() {
     setTitle(task.title);
     setNote(task.note);
     setDueDate(task.due_date || "");
+    setDueTime(task.due_time || "");
     setTaskCategory(task.category || "Biasa");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -450,6 +569,7 @@ export default function LandingPage() {
     setTitle("");
     setNote("");
     setDueDate("");
+    setDueTime("");
     setTaskCategory("Biasa");
   };
 
@@ -498,11 +618,14 @@ export default function LandingPage() {
   };
 
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (task.note && task.note.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.note && task.note.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = filterCategory === "Semua" || (task.category || "Biasa") === filterCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const activeTasks = filteredTasks.filter(t => !t.completed);
+  const completedTasks = filteredTasks.filter(t => t.completed);
 
   // --- SUB-TASK FUNCTIONS ---
   const toggleExpandTask = (taskId: number) => {
@@ -579,13 +702,13 @@ export default function LandingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskTitle: task.title, taskNote: task.note })
       });
-      
+
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
       const subtasksText = data.subtasks as string[];
       if (!subtasksText || subtasksText.length === 0) throw new Error("AI tidak mengembalikan subtask.");
-      
+
       const newSubs = subtasksText.map(t => ({
         task_id: task.id,
         title: t,
@@ -602,11 +725,11 @@ export default function LandingPage() {
           ...prev,
           [task.id]: [...(prev[task.id] || []), ...inserted]
         }));
-        
+
         setExpandedTasks(prev => {
-           const next = new Set(prev);
-           next.add(task.id);
-           return next;
+          const next = new Set(prev);
+          next.add(task.id);
+          return next;
         });
         showToast("AI berhasil menambahkan langkah-langkah!", "success");
       }
@@ -633,6 +756,14 @@ export default function LandingPage() {
     );
   }
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return "Selamat Pagi";
+    if (hour >= 11 && hour < 15) return "Selamat Siang";
+    if (hour >= 15 && hour < 18) return "Selamat Sore";
+    return "Selamat Malam";
+  };
+
   return (
     // PERUBAHAN 1: bg-gray-900 diubah menjadi bg-transparent agar background wrapper terlihat
     <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
@@ -650,7 +781,7 @@ export default function LandingPage() {
       {/* PERUBAHAN 2: Navbar diberi efek kaca transparan & optimalisasi Mobile PWA */}
       <nav className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50 px-4 md:px-6 py-3 sticky top-0 z-20 shadow-sm pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
         <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-          
+
           {/* Kiri: Logo */}
           <div className="flex-shrink-0">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-blue-500/50 shadow-sm shadow-blue-500/20 flex items-center justify-center overflow-hidden bg-white/5">
@@ -677,94 +808,100 @@ export default function LandingPage() {
 
           {/* Kanan: Profil & Hamburger */}
           <div className="flex gap-2.5 md:gap-3 items-center flex-shrink-0">
-          
-          {/* Ikon Profil */}
-          <div className="relative">
-            <button
-              onClick={() => { setIsProfileOpen(!isProfileOpen); setIsMenuOpen(false); }}
-              className="p-1 border-2 border-transparent hover:border-blue-500 rounded-full transition overflow-hidden"
-              title="Menu Akun"
-            >
-              {user.user_metadata?.avatar_url ? (
-                <img src={user.user_metadata.avatar_url} alt="Profil" className="w-9 h-9 rounded-full object-cover" />
-              ) : (
-                <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center border border-gray-600">
-                  <User size={18} className="text-gray-200" />
-                </div>
-              )}
-            </button>
 
-            {isProfileOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)} />
-                <div className="absolute right-0 mt-2 w-64 bg-gray-800/90 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-5 border-b border-gray-700/50 bg-gray-900/50 flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center text-xl font-bold text-white mb-2 shadow-lg border-2 border-gray-700">
-                      {user.user_metadata?.avatar_url ? (
-                        <img src={user.user_metadata.avatar_url} alt="Profil" className="w-full h-full object-cover" />
-                      ) : (
-                        user.email?.substring(0, 2).toUpperCase()
-                      )}
-                    </div>
-                    <p className="text-sm text-white font-semibold truncate w-full text-center">{user.email}</p>
+            {/* Ikon Profil */}
+            <div className="relative">
+              <button
+                onClick={() => { setIsProfileOpen(!isProfileOpen); setIsMenuOpen(false); }}
+                className="p-1 border-2 border-transparent hover:border-blue-500 rounded-full transition overflow-hidden"
+                title="Menu Akun"
+              >
+                {user.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt="Profil" className="w-9 h-9 rounded-full object-cover" />
+                ) : (
+                  <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center border border-gray-600">
+                    <User size={18} className="text-gray-200" />
                   </div>
-                  <a href="/profile" className="w-full text-left px-5 py-4 text-gray-300 hover:bg-gray-700/70 hover:text-white flex items-center gap-3 transition font-medium border-b border-gray-700/50">
-                    <User size={18} /> Pengaturan Profil
-                  </a>
-                  <button onClick={handleLogout} className="w-full text-left px-5 py-4 text-red-400 hover:bg-gray-700/70 flex items-center gap-3 transition font-medium">
-                    <LogOut size={18} /> Keluar Akun
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                )}
+              </button>
 
-          {/* Ikon Hamburger (App Menu) di paling ujung kanan */}
-          <div className="relative">
-            <button
-              onClick={() => { setIsMenuOpen(!isMenuOpen); setIsProfileOpen(false); }}
-              className="p-2 border border-gray-700 hover:border-blue-500 bg-gray-800/80 hover:bg-gray-700 rounded-xl transition text-white shadow-md backdrop-blur-sm"
-              title="Menu Aplikasi"
-            >
-              <Menu size={20} />
-            </button>
-
-            {isMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
-                <div className="absolute right-0 mt-2 w-56 bg-gray-800/95 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-3 border-b border-gray-700/50 bg-gray-900/40">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-2">Navigasi Fitur</p>
-                  </div>
-                  <div className="p-2 flex flex-col gap-1">
-                    <a href="/chat" className="w-full px-4 py-3 bg-gradient-to-r from-pink-600/20 to-purple-600/20 hover:from-pink-600/40 hover:to-purple-600/40 text-gray-200 hover:text-white rounded-xl transition flex items-center justify-between gap-3 border border-pink-500/30 font-semibold shadow-lg shadow-purple-500/10 mb-1 group">
-                      <div className="flex items-center gap-3">
-                        <Bot size={18} className="text-pink-400 group-hover:scale-110 transition" /> Nala AI Hub
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-64 bg-gray-800/90 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-5 border-b border-gray-700/50 bg-gray-900/50 flex flex-col items-center">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center text-xl font-bold text-white mb-2 shadow-lg border-2 border-gray-700">
+                        {user.user_metadata?.avatar_url ? (
+                          <img src={user.user_metadata.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+                        ) : (
+                          user.email?.substring(0, 2).toUpperCase()
+                        )}
                       </div>
-                      <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                      <p className="text-sm text-white font-semibold truncate w-full text-center">{user.email}</p>
+                    </div>
+                    <a href="/profile" className="w-full text-left px-5 py-4 text-gray-300 hover:bg-gray-700/70 hover:text-white flex items-center gap-3 transition font-medium border-b border-gray-700/50">
+                      <User size={18} /> Pengaturan Profil
                     </a>
-                    <a href="/calendar" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-purple-600/20 text-gray-200 hover:text-purple-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-purple-500/30">
-                      <Calendar size={18} className="text-purple-400" /> Kalender Misi
-                    </a>
-                    <a href="/journal" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-pink-600/20 text-gray-200 hover:text-pink-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-pink-500/30">
-                      <BookHeart size={18} className="text-pink-400" /> Jurnal Harian
-                    </a>
-                    <a href="/drive" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-blue-500/30">
-                      <FolderOpen size={18} className="text-blue-400" /> NoteNala Drive
-                    </a>
+                    <button onClick={handleLogout} className="w-full text-left px-5 py-4 text-red-400 hover:bg-gray-700/70 flex items-center gap-3 transition font-medium">
+                      <LogOut size={18} /> Keluar Akun
+                    </button>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
+
+            {/* Ikon Hamburger (App Menu) di paling ujung kanan */}
+            <div className="relative">
+              <button
+                onClick={() => { setIsMenuOpen(!isMenuOpen); setIsProfileOpen(false); }}
+                className="p-2 border border-gray-700 hover:border-blue-500 bg-gray-800/80 hover:bg-gray-700 rounded-xl transition text-white shadow-md backdrop-blur-sm"
+                title="Menu Aplikasi"
+              >
+                <Menu size={20} />
+              </button>
+
+              {isMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-56 bg-gray-800/95 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-3 border-b border-gray-700/50 bg-gray-900/40">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-2">Navigasi Fitur</p>
+                    </div>
+                    <div className="p-2 flex flex-col gap-1">
+                      <a href="/chat" className="w-full px-4 py-3 bg-gradient-to-r from-pink-600/20 to-purple-600/20 hover:from-pink-600/40 hover:to-purple-600/40 text-gray-200 hover:text-white rounded-xl transition flex items-center justify-between gap-3 border border-pink-500/30 font-semibold shadow-lg shadow-purple-500/10 mb-1 group">
+                        <div className="flex items-center gap-3">
+                          <Bot size={18} className="text-pink-400 group-hover:scale-110 transition" /> Nala AI Hub
+                        </div>
+                        <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                      </a>
+                      <a href="/calendar" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-purple-600/20 text-gray-200 hover:text-purple-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-purple-500/30">
+                        <Calendar size={18} className="text-purple-400" /> Kalender Misi
+                      </a>
+                      <a href="/journal" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-pink-600/20 text-gray-200 hover:text-pink-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-pink-500/30">
+                        <BookHeart size={18} className="text-pink-400" /> Jurnal Harian
+                      </a>
+                      <a href="/drive" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-blue-500/30">
+                        <FolderOpen size={18} className="text-blue-400" /> NoteNala Drive
+                      </a>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
           </div>
-          
         </div>
-      </div>
-    </nav>
+      </nav>
 
       <main className="max-w-4xl mx-auto px-4 py-6 md:p-6 relative z-0 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
         {!searchQuery && (
           <>
+            <div className="mb-6 mt-2 text-center">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 drop-shadow-sm">
+                {getGreeting()}, {userName}
+              </h1>
+            </div>
+
             <section className="mb-8 mt-4 text-center">
               <h2 className="text-3xl font-extrabold mb-2 text-white drop-shadow-md">Tugas Tugas Mendatang</h2>
               <p className="text-gray-200 text-lg drop-shadow">Jangan Ditunda tunda selesaikan yang mudah dulu :D</p>
@@ -775,7 +912,7 @@ export default function LandingPage() {
               <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/30">
                 {/* Gradient accent top bar */}
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
-                
+
                 <div className="bg-gray-900/70 backdrop-blur-xl p-6 md:p-8 border border-gray-700/40 border-t-0 rounded-b-2xl">
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -799,12 +936,12 @@ export default function LandingPage() {
                       {/* AI Vision Kamera */}
                       <input type="file" hidden accept="image/*" ref={fileInputRef} onChange={handleImageUpload} />
                       <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isProcessingVoice || isProcessingVision} className={`p-2 md:p-2.5 rounded-xl transition shadow-sm ${isProcessingVision ? "bg-purple-500/20 text-purple-400 border border-purple-500/50 cursor-wait animate-pulse" : "bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-blue-400 hover:border-blue-500/30 hover:bg-gray-800"}`} title="Pindai Gambar Tugas (AI Vision)">
-                         <ImagePlus size={18} />
+                        <ImagePlus size={18} />
                       </button>
-                      
+
                       {/* Dikte Suara */}
                       <button type="button" onClick={startRecording} disabled={isProcessingVoice || isProcessingVision} className={`p-2 md:p-2.5 rounded-xl transition shadow-sm ${isRecording ? "bg-red-500/20 text-red-500 border border-red-500/50 animate-pulse" : isProcessingVoice ? "bg-purple-500/20 text-purple-400 border border-purple-500/50 cursor-wait" : "bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-red-400 hover:border-red-500/30 hover:bg-gray-800"}`} title="Dikte Suara (Auto Fill)">
-                         {isProcessingVoice || isProcessingVision ? <Loader2 size={18} className="animate-spin" /> : <Mic size={18} />}
+                        {isProcessingVoice || isProcessingVision ? <Loader2 size={18} className="animate-spin" /> : <Mic size={18} />}
                       </button>
 
                       {editingId !== null && (
@@ -839,13 +976,50 @@ export default function LandingPage() {
                       </div>
                     </div>
 
+                    {/* Input Jam Pengingat */}
+                    <div className="relative group">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                          <AlarmClock size={16} className={`absolute left-3.5 top-3.5 transition-colors pointer-events-none ${dueTime ? 'text-amber-400' : 'text-gray-500 group-focus-within:text-amber-400'}`} />
+                          <input
+                            type="time"
+                            className={`w-full pl-10 pr-4 py-3 bg-gray-800/60 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500/50 focus:bg-gray-800/80 text-white transition-all custom-date-input text-[16px] md:text-sm touch-manipulation ${
+                              dueTime ? 'border-amber-500/40 bg-amber-500/5' : 'border-gray-600/50'
+                            }`}
+                            value={dueTime}
+                            onChange={(e) => setDueTime(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex-shrink-0">
+                          <p className={`text-xs font-medium transition-colors ${
+                            dueTime ? 'text-amber-400' : 'text-gray-500'
+                          }`}>
+                            {dueTime ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+                                Alarm aktif
+                              </span>
+                            ) : 'Jam Pengingat (opsional)'}
+                          </p>
+                          {dueTime && (
+                            <button
+                              type="button"
+                              onClick={() => setDueTime("")}
+                              className="text-xs text-gray-500 hover:text-red-400 transition mt-0.5"
+                            >
+                              Hapus jam
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="relative group">
                       <textarea
                         placeholder="Tulis detail atau instruksi tugas di sini..."
                         rows={4}
-                        className={`w-full px-4 py-3 bg-gray-800/60 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500/50 focus:bg-gray-800/80 text-white placeholder-gray-500 transition-all resize-none text-[16px] md:text-sm touch-manipulation ${
-                          isRecording ? "border-red-500/50 focus:border-red-500/70 focus:ring-red-500/70" : isProcessingVoice || isProcessingVision ? "border-purple-500/50" : "border-gray-600/50"
-                        }`}
+                        className={`w-full px-4 py-3 bg-gray-800/60 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500/50 focus:bg-gray-800/80 text-white placeholder-gray-500 transition-all resize-none text-[16px] md:text-sm touch-manipulation ${isRecording ? "border-red-500/50 focus:border-red-500/70 focus:ring-red-500/70" : isProcessingVoice || isProcessingVision ? "border-purple-500/50" : "border-gray-600/50"
+                          }`}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         disabled={isProcessingVoice || isProcessingVision}
@@ -855,50 +1029,48 @@ export default function LandingPage() {
                     {/* DRAFT SUBTASKS RENDERER */}
                     {draftSubtasks.length > 0 && (
                       <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
-                         <p className="text-xs font-semibold text-indigo-300 mb-2 flex items-center gap-1.5"><Sparkles size={12} /> AI menemukan {draftSubtasks.length} langkah rahasia di gambar (Draf):</p>
-                         <ul className="space-y-1.5">
-                            {draftSubtasks.map((ds, idx) => (
-                               <li key={idx} className="flex gap-2 items-start text-sm text-gray-300 bg-black/20 p-2 rounded-lg">
-                                  <CheckSquare size={14} className="text-indigo-400 mt-0.5 flex-shrink-0" />
-                                  <span>{ds}</span>
-                                  <button type="button" onClick={() => setDraftSubtasks(prev => prev.filter((_, i) => i !== idx))} className="ml-auto opacity-50 hover:opacity-100 hover:text-red-400 text-gray-400"><X size={14} /></button>
-                               </li>
-                            ))}
-                         </ul>
+                        <p className="text-xs font-semibold text-indigo-300 mb-2 flex items-center gap-1.5"><Sparkles size={12} /> AI menemukan {draftSubtasks.length} langkah rahasia di gambar (Draf):</p>
+                        <ul className="space-y-1.5">
+                          {draftSubtasks.map((ds, idx) => (
+                            <li key={idx} className="flex gap-2 items-start text-sm text-gray-300 bg-black/20 p-2 rounded-lg">
+                              <CheckSquare size={14} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+                              <span>{ds}</span>
+                              <button type="button" onClick={() => setDraftSubtasks(prev => prev.filter((_, i) => i !== idx))} className="ml-auto opacity-50 hover:opacity-100 hover:text-red-400 text-gray-400"><X size={14} /></button>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
                     {/* Category Selector */}
                     <div className="mb-2">
-                       <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Kategori Tugas</p>
-                       <div className="flex flex-wrap gap-2">
-                         {CATEGORIES.map(cat => {
-                           const isSelected = taskCategory === cat.id;
-                           const Icon = cat.icon;
-                           return (
-                             <button
-                               type="button"
-                               key={cat.id}
-                               onClick={() => setTaskCategory(cat.id)}
-                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 touch-manipulation active:scale-95 ${
-                                 isSelected ? `${cat.bg} ${cat.border} ${cat.color} ring-1 ${cat.ring} scale-105 shadow-sm` : 'bg-gray-800/40 border-gray-700/50 text-gray-500 hover:bg-gray-800/70 hover:text-gray-300'
-                               }`}
-                             >
-                               <Icon size={14} />
-                               {cat.label}
-                             </button>
-                           )
-                         })}
-                       </div>
+                      <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Kategori Tugas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {CATEGORIES.map(cat => {
+                          const isSelected = taskCategory === cat.id;
+                          const Icon = cat.icon;
+                          return (
+                            <button
+                              type="button"
+                              key={cat.id}
+                              onClick={() => setTaskCategory(cat.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 touch-manipulation active:scale-95 ${isSelected ? `${cat.bg} ${cat.border} ${cat.color} ring-1 ${cat.ring} scale-105 shadow-sm` : 'bg-gray-800/40 border-gray-700/50 text-gray-500 hover:bg-gray-800/70 hover:text-gray-300'
+                                }`}
+                            >
+                              <Icon size={14} />
+                              {cat.label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     <button
                       type="submit"
-                      className={`relative w-full font-semibold py-3.5 rounded-xl flex justify-center items-center gap-2.5 transition-all overflow-hidden group ${
-                        editingId !== null
-                          ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-white shadow-lg shadow-yellow-500/25'
-                          : 'bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white shadow-lg shadow-blue-500/25'
-                      }`}
+                      className={`relative w-full font-semibold py-3.5 rounded-xl flex justify-center items-center gap-2.5 transition-all overflow-hidden group ${editingId !== null
+                        ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400 text-white shadow-lg shadow-yellow-500/25'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white shadow-lg shadow-blue-500/25'
+                        }`}
                     >
                       <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                       <span className="relative flex items-center gap-2">
@@ -922,9 +1094,8 @@ export default function LandingPage() {
           <div className="flex overflow-x-auto custom-scrollbar gap-2 pb-2 mb-4 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth">
             <button
               onClick={() => setFilterCategory("Semua")}
-              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${
-                filterCategory === "Semua" ? 'bg-gray-800 border-gray-600 text-white shadow-md' : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-              }`}
+              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${filterCategory === "Semua" ? 'bg-gray-800 border-gray-600 text-white shadow-md' : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                }`}
             >
               Semua Tugas
             </button>
@@ -935,12 +1106,11 @@ export default function LandingPage() {
                 <button
                   key={cat.id}
                   onClick={() => setFilterCategory(cat.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${
-                    isSelected ? `${cat.bg} ${cat.border} ${cat.color} shadow-md` : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                  }`}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${isSelected ? `${cat.bg} ${cat.border} ${cat.color} shadow-md` : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                    }`}
                 >
-                   <Icon size={16} />
-                   {cat.label}
+                  <Icon size={16} />
+                  {cat.label}
                 </button>
               )
             })}
@@ -948,7 +1118,20 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 gap-4 border-t border-gray-700/50 pt-4">
             {isLoading ? (
-              <p className="text-center text-gray-300 py-10 animate-pulse drop-shadow">Memuat tugas...</p>
+              // PERUBAHAN UI: Skeleton Loading Screens
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 md:p-5 rounded-2xl border border-gray-800/50 bg-gray-900/30 flex gap-3 md:gap-4 animate-pulse">
+                  <div className="w-6 h-6 rounded-full bg-gray-800 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-5 bg-gray-800 rounded-md w-3/4" />
+                    <div className="h-4 bg-gray-800/80 rounded-md w-full max-w-[90%]" />
+                    <div className="flex gap-2 pt-1">
+                      <div className="h-6 bg-gray-800 rounded-full w-24" />
+                      <div className="h-6 bg-gray-800/60 rounded-full w-20" />
+                    </div>
+                  </div>
+                </div>
+              ))
             ) : filteredTasks.length === 0 ? (
               // PERUBAHAN 4: State kosong transparan
               <div className="bg-gray-900/60 backdrop-blur-md border border-gray-700/50 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400">
@@ -965,18 +1148,25 @@ export default function LandingPage() {
                 )}
               </div>
             ) : (
-              filteredTasks.map((task) => {
-                const daysLeft = getDaysLeftInfo(task.due_date);
+              <>
+                {/* Daftar Tugas Aktif */}
+                {activeTasks.map((task) => {
+                      const daysLeft = getDaysLeftInfo(task.due_date, task.due_time);
 
                 return (
-                  // PERUBAHAN 5: Kartu list tugas transparan & optimal untuk Mobile
-                  <div
+                  <SwipeableTaskCard
                     key={task.id}
-                    className={`p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md ${task.completed
-                      ? 'bg-gray-900/50 border-gray-800/50 opacity-80'
-                      : 'bg-gray-900/80 border-gray-700/60 hover:border-blue-500/50 hover:bg-gray-800/90'
-                      }`}
+                    onComplete={() => !task.completed && toggleTask(task)}
+                    onDelete={() => confirmDelete(task.id)}
+                    disabled={task.completed}
                   >
+                    {/* PERUBAHAN 5: Kartu list tugas transparan & optimal untuk Mobile */}
+                    <div
+                      className={`p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md ${task.completed
+                        ? 'bg-gray-900/50 border-gray-800/50 opacity-80'
+                        : 'bg-gray-900/80 border-gray-700/60 hover:border-blue-500/50 hover:bg-gray-800/90'
+                        }`}
+                    >
                     <div className="pt-0.5">
                       <button onClick={() => toggleTask(task)} className="focus:outline-none flex-shrink-0 touch-manipulation active:scale-95 transition-transform">
                         {task.completed ? (
@@ -1002,11 +1192,33 @@ export default function LandingPage() {
                           <div className="flex flex-wrap items-center gap-2 mt-2.5 md:mt-3 text-xs md:text-sm font-medium">
                             {task.due_date ? (
                               <>
-                                <span className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 rounded-full ${task.completed ? 'bg-gray-800/60 text-gray-500' : 'bg-gray-800/80 text-gray-300 border border-gray-700/50'}`}>
+                                {/* Badge Tanggal + Jam (digabung) */}
+                                <span className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 rounded-full ${
+                                  task.completed
+                                    ? 'bg-gray-800/60 text-gray-500'
+                                    : task.due_time
+                                      ? 'bg-gray-800/80 text-gray-300 border border-amber-500/20'
+                                      : 'bg-gray-800/80 text-gray-300 border border-gray-700/50'
+                                }`}>
                                   <Calendar size={13} />
                                   {new Date(task.due_date).toLocaleDateString('id-ID', {
                                     day: 'numeric', month: 'short', year: 'numeric'
                                   })}
+                                  {task.due_time && (
+                                    <>
+                                      <span className="text-gray-600 mx-0.5">·</span>
+                                      <AlarmClock size={12} className={task.completed ? 'text-gray-600' : 'text-amber-400'} />
+                                      <span className={task.completed ? '' : 'text-amber-300 font-semibold'}>
+                                        {(() => {
+                                          const [h, m] = task.due_time!.split(':');
+                                          const hour = parseInt(h);
+                                          const suffix = hour >= 12 ? 'PM' : 'AM';
+                                          const hour12 = hour % 12 || 12;
+                                          return `${hour12}:${m} ${suffix}`;
+                                        })()}
+                                      </span>
+                                    </>
+                                  )}
                                 </span>
 
                                 {!task.completed && daysLeft && (
@@ -1072,27 +1284,25 @@ export default function LandingPage() {
                               className="w-full flex items-center gap-3 group/sub hover:bg-gray-800/40 rounded-lg px-2 py-1.5 -mx-2 transition"
                             >
                               <ListChecks size={15} className="text-indigo-400 flex-shrink-0" />
-                              
+
                               {progress ? (
                                 <>
                                   {/* Progress bar */}
                                   <div className="flex-1 h-2 bg-gray-800/80 rounded-full overflow-hidden border border-gray-700/40">
                                     <div
-                                      className={`h-full rounded-full transition-all duration-500 ease-out ${
-                                        progress.percent >= 100 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                                      className={`h-full rounded-full transition-all duration-500 ease-out ${progress.percent >= 100 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
                                         progress.percent >= 70 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' :
-                                        progress.percent >= 30 ? 'bg-gradient-to-r from-blue-500 to-indigo-400' :
-                                        'bg-gradient-to-r from-orange-500 to-amber-400'
-                                      }`}
+                                          progress.percent >= 30 ? 'bg-gradient-to-r from-blue-500 to-indigo-400' :
+                                            'bg-gradient-to-r from-orange-500 to-amber-400'
+                                        }`}
                                       style={{ width: `${progress.percent}%` }}
                                     />
                                   </div>
-                                  <span className={`text-xs font-bold flex-shrink-0 ${
-                                    progress.percent >= 100 ? 'text-emerald-400' :
+                                  <span className={`text-xs font-bold flex-shrink-0 ${progress.percent >= 100 ? 'text-emerald-400' :
                                     progress.percent >= 70 ? 'text-teal-400' :
-                                    progress.percent >= 30 ? 'text-blue-400' :
-                                    'text-orange-400'
-                                  }`}>
+                                      progress.percent >= 30 ? 'text-blue-400' :
+                                        'text-orange-400'
+                                    }`}>
                                     {progress.done}/{progress.total}
                                   </span>
                                 </>
@@ -1160,7 +1370,7 @@ export default function LandingPage() {
                                     <PlusCircle size={16} />
                                   </button>
                                 </div>
-                                
+
                                 {/* AI Breaker Button */}
                                 <div className="mt-2 text-right">
                                   <button
@@ -1182,9 +1392,72 @@ export default function LandingPage() {
                         );
                       })()}
                     </div>
-                  </div>
+                    </div>
+                  </SwipeableTaskCard>
                 );
-              })
+              })}
+
+              {/* PERUBAHAN UI: COLLAPSIBLE TUGAS SELESAI */}
+              {completedTasks.length > 0 && (
+                <div className="mt-8 mb-2">
+                  <button
+                    onClick={() => setIsCompletedCollapsed(!isCompletedCollapsed)}
+                    className="flex items-center justify-center gap-3 w-full group"
+                  >
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-700/50 to-gray-700/50 flex-1 transition-colors group-hover:via-gray-600/50 group-hover:to-gray-600/50" />
+                    <span className="flex items-center gap-2 bg-gray-900/60 backdrop-blur-md border border-gray-700/50 text-gray-400 group-hover:text-gray-200 group-hover:bg-gray-800/80 px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase transition-all shadow-xl">
+                      {isCompletedCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                      Tugas Selesai ({completedTasks.length})
+                    </span>
+                    <div className="h-px bg-gradient-to-l from-transparent via-gray-700/50 to-gray-700/50 flex-1 transition-colors group-hover:via-gray-600/50 group-hover:to-gray-600/50" />
+                  </button>
+
+                  {!isCompletedCollapsed && (
+                    <div className="mt-4 grid grid-cols-1 gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                      {completedTasks.map((task) => {
+                        const daysLeft = getDaysLeftInfo(task.due_date, task.due_time);
+
+                        return (
+                          <SwipeableTaskCard
+                            key={task.id}
+                            onComplete={() => !task.completed && toggleTask(task)}
+                            onDelete={() => confirmDelete(task.id)}
+                            disabled={task.completed}
+                          >
+                            <div className="p-3 md:p-4 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md bg-gray-900/30 border-gray-800/40 opacity-70 hover:opacity-100">
+                              <div className="pt-0.5">
+                                <button onClick={() => toggleTask(task)} className="focus:outline-none flex-shrink-0 touch-manipulation active:scale-95 transition-transform">
+                                  <CheckCircle2 size={24} className="text-gray-500 drop-shadow-sm" />
+                                </button>
+                              </div>
+                              <div className="flex-1 flex flex-col min-w-0 justify-center">
+                                <h4 className="text-base md:text-lg font-semibold truncate line-through text-gray-500">
+                                  {task.title}
+                                </h4>
+                                {task.note && (
+                                  <p className="mt-1 text-sm text-gray-600 truncate">
+                                    {task.note}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center">
+                                <button
+                                  onClick={() => confirmDelete(task.id)}
+                                  className="p-2 lg:p-2.5 rounded-xl transition touch-manipulation text-red-500/30 hover:text-red-500 hover:bg-red-500/10"
+                                  title="Hapus Tugas"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          </SwipeableTaskCard>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
             )}
           </div>
         </div>

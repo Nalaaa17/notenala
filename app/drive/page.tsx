@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import {
     Folder, FileText, UploadCloud, Plus, ArrowLeft,
     Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search, Sparkles,
-    CheckCircle, Info, XCircle
+    CheckCircle, Info, XCircle, Share2, Link, Copy, Check
 } from 'lucide-react';
 
 interface FolderType {
@@ -49,8 +49,14 @@ export default function DrivePage() {
     const [fileToRename, setFileToRename] = useState<FileType | null>(null);
     const [newFileName, setNewFileName] = useState("");
 
-    // STATE BARU: Untuk fitur pencarian (Search)
     const [searchQuery, setSearchQuery] = useState("");
+
+    // STATE: Share File
+    const [shareModalFile, setShareModalFile] = useState<FileType | null>(null);
+    const [shareUrl, setShareUrl] = useState("");
+    const [isSharing, setIsSharing] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
+    const [isRevoked, setIsRevoked] = useState(false);
 
     // Custom Toast Notification
     const [toasts, setToasts] = useState<ToastType[]>([]);
@@ -174,6 +180,51 @@ export default function DrivePage() {
         } else {
             showToast("Terjadi kesalahan saat mengubah nama file.", "error");
         }
+    };
+
+    // --- SHARE FILE ---
+    const handleShareFile = async (file: FileType) => {
+        setShareModalFile(file);
+        setShareUrl("");
+        setIsRevoked(false);
+        setIsSharing(true);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user!.id).single();
+
+        const res = await fetch('/api/share-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileId: file.id,
+                userId: user!.id,
+                userName: profile?.full_name || user!.email?.split('@')[0] || 'Pengguna NoteNala',
+            }),
+        });
+        const data = await res.json();
+        if (data.shareUrl) setShareUrl(data.shareUrl);
+        else showToast('Gagal membuat link berbagi.', 'error');
+        setIsSharing(false);
+    };
+
+    const handleCopyShareUrl = () => {
+        if (!shareUrl) return;
+        navigator.clipboard.writeText(shareUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2500);
+    };
+
+    const handleRevokeShare = async () => {
+        if (!shareModalFile) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        await fetch('/api/share-file', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileId: shareModalFile.id, userId: user!.id }),
+        });
+        setShareUrl("");
+        setIsRevoked(true);
+        showToast('Link berbagi berhasil dicabut.', 'success');
     };
 
     const confirmDeleteFolder = (id: number, e: React.MouseEvent) => {
@@ -355,6 +406,9 @@ export default function DrivePage() {
                                                 <button onClick={() => openRenameModal(file)} className="p-2 text-yellow-400 hover:bg-yellow-500/20 rounded-lg transition" title="Ubah Nama">
                                                     <Pencil size={18} />
                                                 </button>
+                                                <button onClick={() => handleShareFile(file)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-lg transition" title="Bagikan File">
+                                                    <Share2 size={18} />
+                                                </button>
                                                 <a href={`${file.file_url}?download=${encodeURIComponent(file.name)}`} className="p-2 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition" title="Download Langsung">
                                                     <Download size={18} />
                                                 </a>
@@ -430,6 +484,71 @@ export default function DrivePage() {
                                 <button onClick={executeDelete} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/20">Ya, Hapus</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL SHARE FILE */}
+            {shareModalFile && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                    <div className="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-1">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Share2 size={20} className="text-purple-400" /> Bagikan File
+                            </h3>
+                            <button onClick={() => { setShareModalFile(null); setShareUrl(""); }} className="text-gray-400 hover:text-white">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-5">Siapapun yang punya link ini bisa melihat dan mendownload file.</p>
+
+                        {/* File info */}
+                        <div className="flex items-center gap-3 bg-gray-900/60 p-3 rounded-xl border border-gray-700/40 mb-5">
+                            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/10">
+                                <File size={20} className="text-blue-400" />
+                            </div>
+                            <span className="text-sm font-medium text-white truncate flex-1">{shareModalFile.name}</span>
+                        </div>
+
+                        {isSharing ? (
+                            <div className="flex items-center justify-center gap-3 py-6 text-gray-400">
+                                <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                <span>Membuat link...</span>
+                            </div>
+                        ) : shareUrl && !isRevoked ? (
+                            <>
+                                {/* Link Display */}
+                                <div className="flex items-center gap-2 bg-gray-900/80 border border-purple-500/30 rounded-xl p-3 mb-4">
+                                    <Link size={16} className="text-purple-400 flex-shrink-0" />
+                                    <span className="text-sm text-gray-300 flex-1 truncate font-mono">{shareUrl}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleCopyShareUrl}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold transition text-sm ${
+                                            isCopied
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-500/20'
+                                        }`}
+                                    >
+                                        {isCopied ? <><Check size={16} /> Disalin!</> : <><Copy size={16} /> Salin Link</>}
+                                    </button>
+                                    <button
+                                        onClick={handleRevokeShare}
+                                        className="px-4 py-2.5 rounded-xl font-semibold transition text-sm bg-gray-700 hover:bg-red-500/20 hover:text-red-400 text-gray-300 border border-gray-600 hover:border-red-500/30 whitespace-nowrap"
+                                        title="Hapus akses link ini"
+                                    >
+                                        Hapus Link
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-3 text-center">Link tidak memiliki batas waktu · File tetap aman di Drive kamu</p>
+                            </>
+                        ) : isRevoked ? (
+                            <div className="py-4 text-center">
+                                <p className="text-emerald-400 font-medium">✓ Link berhasil dihapus</p>
+                                <p className="text-gray-500 text-sm mt-1">File tidak lagi bisa diakses dari link lama.</p>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             )}

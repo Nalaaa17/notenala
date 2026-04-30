@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       Aturan Ekstraksi:
       - "title": Inti dari tugas yang harus dikerjakan (Singkat dan Jelas).
       - "due_date": Jika pengguna menyebut kapan tugas ini harus selesai (besok, lusa, tanggal 20 oktober, bulan depan), tebak tanggalnya ke format YYYY-MM-DD. Anggap hari ini adalah ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Jika tidak disebut, biarkan bernilai string kosong "".
+      - "due_time": Jika pengguna menyebut jam/waktu untuk pengingat (jam 3 sore, pukul 09.00, jam setengah 10, jam 14, dsb.), konversi ke format HH:MM (24 jam). Contoh: "jam 3 sore" → "15:00", "setengah 10 pagi" → "09:30", "jam 9 malam" → "21:00". Jika tidak ada waktu disebutkan, biarkan bernilai string kosong "".
       - "category": Harus salah satu dari "Biasa", "Urgent", "Kuliah", "Pribadi", atau "Pekerjaan". Pilih yang paling masuk akal bedasarkan isi teks. Jika tidak jelas, gunakan "Biasa".
       - "note": Sisa detail instruksi tugas yang panjang, langkah, pesan, syarat, dsb. Jika tidak ada, gunakan "".
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
       
       Contoh:
       Berikan output seperti:
-      {"title": "Bikin makalah Sejarah", "due_date": "2023-11-20", "category": "Kuliah", "note": "Minimal 10 halaman bahas orde baru"}
+      {"title": "Meeting dengan klien", "due_date": "2023-11-20", "due_time": "14:00", "category": "Pekerjaan", "note": "Di ruang rapat lantai 3"}
       `
     });
 
