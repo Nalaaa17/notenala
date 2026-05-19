@@ -7,7 +7,7 @@ import {
   PlusCircle, FileText, FolderOpen, Send, Calendar, CheckCircle2,
   Circle, Pencil, Trash2, X, AlertTriangle, Clock, Search, User, LogOut, Coffee, BookHeart, Menu, Bot, Sparkles,
   ListChecks, Plus, ChevronDown, ChevronUp, Square, CheckSquare,
-  Tag, AlertCircle, GraduationCap, Briefcase, Loader2, Mic, Wifi, WifiOff, ImagePlus, AlarmClock
+  Tag, AlertCircle, GraduationCap, Briefcase, Loader2, Mic, Wifi, WifiOff, ImagePlus, AlarmClock, Flame, Activity
 } from 'lucide-react';
 
 // Struktur data
@@ -18,6 +18,7 @@ interface Task {
   due_date: string | null;
   due_time?: string | null;
   completed: boolean;
+  completed_at?: string | null;
   user_id?: string;
   category?: string;
 }
@@ -601,7 +602,10 @@ export default function LandingPage() {
   };
 
   const toggleTask = async (task: Task) => {
-    const updated = { ...task, completed: !task.completed };
+    const nowCompleting = !task.completed;
+    const completedAt = nowCompleting ? new Date().toISOString() : null;
+    const updated = { ...task, completed: nowCompleting, completed_at: completedAt };
+
     if (!isOnline) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
       saveTasksToCache(tasks.map(t => t.id === task.id ? updated : t));
@@ -610,7 +614,10 @@ export default function LandingPage() {
       return;
     }
 
-    const { error } = await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completed: nowCompleting, completed_at: completedAt })
+      .eq('id', task.id);
     if (!error) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
       saveTasksToCache(tasks.map(t => t.id === task.id ? updated : t));
@@ -880,6 +887,12 @@ export default function LandingPage() {
                       <a href="/journal" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-pink-600/20 text-gray-200 hover:text-pink-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-pink-500/30">
                         <BookHeart size={18} className="text-pink-400" /> Jurnal Harian
                       </a>
+                      <a href="/habits" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-emerald-600/20 text-gray-200 hover:text-emerald-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-emerald-500/30">
+                        <Flame size={18} className="text-emerald-400" /> Habits Tracker
+                      </a>
+                      <a href="/stats" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-cyan-600/20 text-gray-200 hover:text-cyan-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-cyan-500/30">
+                        <Activity size={18} className="text-cyan-400" /> Statistik Aktivitas
+                      </a>
                       <a href="/drive" className="w-full px-4 py-3 bg-gray-900/30 hover:bg-blue-600/20 text-gray-200 hover:text-blue-300 rounded-xl transition flex items-center gap-3 border border-transparent hover:border-blue-500/30">
                         <FolderOpen size={18} className="text-blue-400" /> NoteNala Drive
                       </a>
@@ -1094,7 +1107,7 @@ export default function LandingPage() {
           <div className="flex overflow-x-auto custom-scrollbar gap-2 pb-2 mb-4 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth">
             <button
               onClick={() => setFilterCategory("Semua")}
-              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${filterCategory === "Semua" ? 'bg-gray-800 border-gray-600 text-white shadow-md' : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${filterCategory === "Semua" ? 'bg-gray-700 border-gray-500 text-white shadow-md' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-300 hover:bg-gray-700'
                 }`}
             >
               Semua Tugas
@@ -1106,7 +1119,7 @@ export default function LandingPage() {
                 <button
                   key={cat.id}
                   onClick={() => setFilterCategory(cat.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${isSelected ? `${cat.bg} ${cat.border} ${cat.color} shadow-md` : 'bg-transparent border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all border touch-manipulation ${isSelected ? `bg-gray-700 ${cat.border.split('/')[0]} ${cat.color} shadow-md` : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-300 hover:bg-gray-700'
                     }`}
                 >
                   <Icon size={16} />
@@ -1318,9 +1331,10 @@ export default function LandingPage() {
                             </button>
 
                             {/* Expanded checklist */}
-                            {isExpanded && (
-                              <div className="mt-2 ml-1 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                                {taskSubtasks.map(sub => (
+                            <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'}`}>
+                              <div className="overflow-hidden">
+                                <div className="ml-1 space-y-1">
+                                  {taskSubtasks.map(sub => (
                                   <div key={sub.id} className="flex items-center gap-2.5 group/item rounded-lg px-2 py-1.5 hover:bg-gray-800/40 transition">
                                     <button
                                       onClick={() => toggleSubtask(sub)}
@@ -1387,12 +1401,13 @@ export default function LandingPage() {
                                   </button>
                                 </div>
                               </div>
-                            )}
+                            </div>
                           </div>
-                        );
-                      })()}
-                    </div>
-                    </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
                   </SwipeableTaskCard>
                 );
               })}
@@ -1412,9 +1427,10 @@ export default function LandingPage() {
                     <div className="h-px bg-gradient-to-l from-transparent via-gray-700/50 to-gray-700/50 flex-1 transition-colors group-hover:via-gray-600/50 group-hover:to-gray-600/50" />
                   </button>
 
-                  {!isCompletedCollapsed && (
-                    <div className="mt-4 grid grid-cols-1 gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
-                      {completedTasks.map((task) => {
+                  <div className={`grid transition-all duration-300 ease-in-out ${!isCompletedCollapsed ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
+                    <div className="overflow-hidden">
+                      <div className="grid grid-cols-1 gap-3">
+                        {completedTasks.map((task) => {
                         const daysLeft = getDaysLeftInfo(task.due_date, task.due_time);
 
                         return (
@@ -1424,7 +1440,7 @@ export default function LandingPage() {
                             onDelete={() => confirmDelete(task.id)}
                             disabled={task.completed}
                           >
-                            <div className="p-3 md:p-4 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md bg-gray-900/30 border-gray-800/40 opacity-70 hover:opacity-100">
+                            <div className="p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition shadow-sm backdrop-blur-md bg-gray-900/80 border-gray-700/60 hover:border-blue-500/50 hover:bg-gray-800/90">
                               <div className="pt-0.5">
                                 <button onClick={() => toggleTask(task)} className="focus:outline-none flex-shrink-0 touch-manipulation active:scale-95 transition-transform">
                                   <CheckCircle2 size={24} className="text-gray-500 drop-shadow-sm" />
@@ -1453,8 +1469,9 @@ export default function LandingPage() {
                           </SwipeableTaskCard>
                         );
                       })}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </>

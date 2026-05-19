@@ -32,6 +32,8 @@ import {
   CheckSquare,
   Square,
   X,
+  Flame,
+  Activity,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
@@ -78,9 +80,8 @@ function RevealOnScroll({
   return (
     <div
       ref={ref}
-      className={`transition-[opacity,transform] duration-700 ease-out motion-reduce:duration-150 ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-      } ${className}`}
+      className={`transition-[opacity,transform] duration-700 ease-out motion-reduce:duration-150 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        } ${className}`}
       style={{ transitionDelay: visible ? `${delayMs}ms` : "0ms" }}
     >
       {children}
@@ -372,10 +373,22 @@ const whyItems = [
 ];
 
 const modules = [
-  { icon: Calendar, title: "Kalender Misi", desc: "Lihat tenggat dalam sudut pandang tanggal." },
-  { icon: BookHeart, title: "Jurnal Harian", desc: "Refleksi singkat terpisah dari daftar tugas." },
-  { icon: FolderOpen, title: "NoteNala Drive", desc: "Akses file dan materi pendukung pekerjaanmu." },
-  { icon: Bot, title: "Nala AI Hub", desc: "Asisten percakapan untuk ide dan bantuan cepat." },
+  { icon: Calendar, title: "Kalender Misi", desc: "Lihat tenggat dalam sudut pandang tanggal.", color: "bg-purple-600" },
+  { icon: BookHeart, title: "Jurnal Harian", desc: "Refleksi singkat terpisah dari daftar tugas.", color: "bg-pink-600" },
+  { icon: FolderOpen, title: "NoteNala Drive", desc: "Akses file dan materi pendukung pekerjaanmu.", color: "bg-blue-600" },
+  { icon: Bot, title: "Nala AI Hub", desc: "Asisten percakapan untuk ide dan bantuan cepat.", color: "bg-slate-900" },
+  {
+    icon: Flame,
+    title: "Habits Tracker",
+    desc: "Bangun kebiasaan baik harian dengan heatmap visual dan pengingat otomatis per harinya.",
+    color: "bg-gradient-to-br from-emerald-600 to-teal-500",
+  },
+  {
+    icon: Activity,
+    title: "Statistik Aktivitas",
+    desc: "Heatmap otomatis dari tugas yang diselesaikan untuk lihat seberapa produktif kamu.",
+    color: "bg-gradient-to-br from-cyan-600 to-blue-500",
+  },
 ];
 
 const benefits = [
@@ -648,13 +661,16 @@ export default function LandingPage() {
               </p>
             </div>
           </RevealOnScroll>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {modules.map((m, i) => {
               const Icon = m.icon;
               return (
                 <RevealOnScroll key={m.title} delayMs={i * 70}>
-                  <div className="group flex gap-3 sm:gap-4 rounded-2xl border border-slate-200 p-4 sm:p-6 bg-gradient-to-br from-white to-slate-50/80 hover:border-blue-200/90 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg motion-safe:transition-all duration-300 h-full">
-                    <div className="shrink-0 h-11 w-11 sm:h-12 sm:w-12 rounded-xl bg-slate-900 text-white flex items-center justify-center motion-safe:group-hover:scale-105 motion-safe:transition-transform">
+                  <div className={`group flex gap-3 sm:gap-4 rounded-2xl border p-4 sm:p-6 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg motion-safe:transition-all duration-300 h-full relative overflow-hidden ${(m as any).isNew ? 'border-emerald-200/60 bg-gradient-to-br from-white to-emerald-50/50 hover:border-emerald-300/80' : 'border-slate-200 bg-gradient-to-br from-white to-slate-50/80 hover:border-blue-200/90'}`}>
+                    {(m as any).isNew && (
+                      <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm">NEW</span>
+                    )}
+                    <div className={`shrink-0 h-11 w-11 sm:h-12 sm:w-12 rounded-xl text-white flex items-center justify-center motion-safe:group-hover:scale-105 motion-safe:transition-transform shadow-md ${(m as any).color || 'bg-slate-900'}`}>
                       <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <div className="min-w-0">

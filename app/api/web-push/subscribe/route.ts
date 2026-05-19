@@ -20,12 +20,12 @@ export async function POST(req: Request) {
     }
 
     // Cek apakah endpoint ini sudah tersimpan
-    const { data: existing } = await supabaseAdmin
+    const { data: userSubs } = await supabaseAdmin
       .from('push_subscriptions')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('endpoint', subscription.endpoint)
-      .maybeSingle();
+      .select('id, subscription')
+      .eq('user_id', userId);
+
+    const existing = userSubs?.find(s => s.subscription && s.subscription.endpoint === subscription.endpoint);
 
     if (!existing) {
       const { error } = await supabaseAdmin
@@ -33,16 +33,11 @@ export async function POST(req: Request) {
         .insert([{
           user_id: userId,
           subscription: subscription,   // objek lengkap { endpoint, keys }
-          endpoint: subscription.endpoint, // kolom terpisah untuk query cepat
         }]);
 
       if (error) {
         console.error("Insert error:", error);
-        // Fallback: coba tanpa kolom endpoint terpisah (kalau kolom itu belum ada)
-        const { error: error2 } = await supabaseAdmin
-          .from('push_subscriptions')
-          .insert([{ user_id: userId, subscription: subscription }]);
-        if (error2) throw error2;
+        throw error;
       }
     } else {
       // Update subscription (keys bisa berubah setelah browser refresh)
@@ -68,13 +63,21 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing endpoint or user ID" }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { data: userSubs } = await supabaseAdmin
       .from('push_subscriptions')
-      .delete()
-      .eq('user_id', userId)
-      .eq('endpoint', endpoint);
+      .select('id, subscription')
+      .eq('user_id', userId);
 
-    if (error) throw error;
+    const existing = userSubs?.find(s => s.subscription && s.subscription.endpoint === endpoint);
+
+    if (existing) {
+      const { error } = await supabaseAdmin
+        .from('push_subscriptions')
+        .delete()
+        .eq('id', existing.id);
+
+      if (error) throw error;
+    }
 
     return NextResponse.json({ success: true, message: "Subscription deleted!" });
   } catch (error: any) {

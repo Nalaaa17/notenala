@@ -165,17 +165,14 @@ export default function JournalPage() {
         <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
             
             {/* Navigasi Atas */}
-            <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex flex-wrap justify-between items-center sticky top-0 z-10 shadow-md gap-3">
-                <h1 className="text-xl font-bold text-pink-400 flex items-center gap-2 drop-shadow-md">
-                    <BookHeart size={24} /> NoteNala Jurnal
-                </h1>
-                <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <a href="/calendar" className="flex items-center gap-2 bg-purple-600/90 hover:bg-purple-500 text-white px-4 py-2 rounded-xl transition shadow-lg shadow-purple-500/30 font-medium backdrop-blur-sm flex-1 sm:flex-auto justify-center">
-                        <Calendar size={18} /> Kalender
-                    </a>
-                    <a href="/" className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-xl transition border border-gray-700/50 backdrop-blur-sm shadow-md flex-1 sm:flex-auto justify-center">
-                        <ArrowLeft size={18} /> Kembali
-                    </a>
+            <nav className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50 px-4 md:px-6 py-3 sticky top-0 z-20 shadow-sm pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
+                <div className="flex items-center gap-3 max-w-5xl mx-auto">
+                  <a href="/" className="p-2 bg-gray-800/80 hover:bg-gray-700 border border-gray-700/50 rounded-xl transition text-gray-300 hover:text-white flex-shrink-0">
+                    <ArrowLeft size={20} />
+                  </a>
+                  <h1 className="text-lg md:text-xl font-bold text-pink-400 flex items-center gap-2">
+                    <BookHeart size={21} /> Jurnal Harian
+                  </h1>
                 </div>
             </nav>
 

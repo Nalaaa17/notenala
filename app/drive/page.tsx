@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-    Folder, FileText, UploadCloud, Plus, ArrowLeft,
+    Folder, FileText, FolderOpen, UploadCloud, Plus, ArrowLeft,
     Trash2, File, X, AlertTriangle, Eye, Download, Pencil, Search, Sparkles,
     CheckCircle, Info, XCircle, Share2, Link, Copy, Check
 } from 'lucide-react';
@@ -283,13 +283,15 @@ export default function DrivePage() {
     return (
         <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative">
 
-            <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-md">
-                <h1 className="text-xl font-bold text-blue-400 flex items-center gap-2">
-                    <FileText size={24} /> NoteNala Drive
-                </h1>
-                <a href="/" className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition border border-gray-700/50 backdrop-blur-sm">
-                    <ArrowLeft size={18} /> Kembali ke Catatan
-                </a>
+            <nav className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50 px-4 md:px-6 py-3 sticky top-0 z-10 shadow-sm pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
+                <div className="flex items-center gap-3 max-w-5xl mx-auto">
+                  <a href="/" className="p-2 bg-gray-800/80 hover:bg-gray-700 border border-gray-700/50 rounded-xl transition text-gray-300 hover:text-white flex-shrink-0">
+                    <ArrowLeft size={20} />
+                  </a>
+                  <h1 className="text-lg md:text-xl font-bold text-blue-400 flex items-center gap-2">
+                    <FolderOpen size={21} /> NoteNala Drive
+                  </h1>
+                </div>
             </nav>
 
             <main className="max-w-5xl mx-auto p-6 mt-4">

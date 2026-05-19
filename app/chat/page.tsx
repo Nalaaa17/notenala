@@ -78,7 +78,15 @@ function ChatContent() {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // Validasi ukuran agar tidak melebihi 10MB (menjaga performa Base64)
+            let fileType = file.type;
+            if (!fileType) {
+                if (file.name.toLowerCase().endsWith('.pdf')) fileType = 'application/pdf';
+                else if (file.name.toLowerCase().endsWith('.doc')) fileType = 'application/msword';
+                else if (file.name.toLowerCase().endsWith('.docx')) fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                else fileType = 'application/octet-stream';
+            }
+
+            // Validasi ukuran agar tidak melebihi 10MB
             if (file.size > 10 * 1024 * 1024) {
                 alert("Maksimal ukuran file adalah 10MB.");
                 if (imageInputRef.current) imageInputRef.current.value = "";
@@ -88,9 +96,13 @@ function ChatContent() {
 
             const reader = new FileReader();
             reader.onloadend = () => {
+                let base64 = reader.result as string;
+                if (base64.startsWith('data:;base64,')) {
+                    base64 = base64.replace('data:;base64,', `data:${fileType};base64,`);
+                }
                 setSelectedFile({
-                    base64: reader.result as string,
-                    type: file.type,
+                    base64: base64,
+                    type: fileType,
                     name: file.name
                 });
             };
@@ -113,6 +125,8 @@ function ChatContent() {
         setInput("");
         setSelectedFile(null);
         setAttachedPdf(null);
+        if (imageInputRef.current) imageInputRef.current.value = "";
+        if (docInputRef.current) docInputRef.current.value = "";
         setIsLoading(true);
 
         try {
@@ -186,23 +200,17 @@ function ChatContent() {
     return (
         <div className="min-h-screen bg-transparent text-gray-100 font-sans flex flex-col relative overflow-hidden">
             
-            {/* Navbar Obrolan */}
-            <nav className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 px-4 md:px-6 py-4 flex justify-between items-center sticky top-0 z-20 shadow-md">
-                <div className="flex items-center gap-3 md:gap-4">
-                    <a href="/" className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition border border-gray-700/50">
-                        <ArrowLeft size={20} />
-                    </a>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center p-0.5 shadow-lg shadow-purple-500/20 border-2 border-gray-800">
-                            <Bot size={22} className="text-white drop-shadow-md" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold font-sans text-white flex items-center gap-2 drop-shadow-sm">
-                                Nala AI <Sparkles size={16} className="text-yellow-400" />
-                            </h1>
-                            <p className="text-xs text-purple-300 font-medium">✨ Selalu Aktif Membantu</p>
-                        </div>
+            <nav className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 px-4 md:px-6 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-md pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
+                <a href="/" className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition border border-gray-700/50 flex-shrink-0">
+                    <ArrowLeft size={20} />
+                </a>
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20 border-2 border-gray-800">
+                        <Bot size={18} className="text-white" />
                     </div>
+                    <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-1.5">
+                        Nala AI <Sparkles size={15} className="text-yellow-400" />
+                    </h1>
                 </div>
             </nav>
 
@@ -247,8 +255,42 @@ function ChatContent() {
                                         <img src={msg.image} alt="Attachment" className="w-full max-w-sm rounded-xl mb-3 border border-gray-500/30 shadow-sm" />
                                     )
                                 )}
-                                <div className="whitespace-pre-wrap text-[15px] leading-relaxed break-words">
-                                    {msg.content}
+                                <div className="text-[15px] leading-relaxed break-words markdown-content">
+                                    {isNala ? (
+                                        <div className="flex flex-col gap-1.5">
+                                            {msg.content.split('\n').map((line, i) => {
+                                                const trimmed = line.trim();
+                                                
+                                                // Handle Empty Lines
+                                                if (!trimmed) return <div key={i} className="h-2"></div>;
+                                                
+                                                // Handle Unordered Lists
+                                                if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                                                    const content = trimmed.substring(2);
+                                                    const formatted = content
+                                                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                                        .replace(/`(.*?)`/g, '<code class="bg-black/20 rounded px-1.5 py-0.5 font-mono text-[0.9em]">$1</code>');
+                                                    return (
+                                                        <div key={i} className="flex gap-2.5 items-start">
+                                                            <span className="text-purple-400 mt-1.5">•</span>
+                                                            <span dangerouslySetInnerHTML={{ __html: formatted }} />
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Normal text
+                                                const formattedLine = line
+                                                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                                    .replace(/`(.*?)`/g, '<code class="bg-black/20 rounded px-1.5 py-0.5 font-mono text-[0.9em]">$1</code>');
+                                                
+                                                return <p key={i} dangerouslySetInnerHTML={{ __html: formattedLine }} />;
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                                    )}
                                 </div>
                             </div>
                         </div>

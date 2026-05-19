@@ -142,17 +142,14 @@ export default function CalendarPage() {
 
     return (
         <div className="min-h-screen bg-transparent text-gray-100 font-sans pb-12 relative overflow-hidden">
-            <nav className="bg-gray-900/70 backdrop-blur-md border-b border-gray-700/50 px-6 py-4 flex flex-wrap justify-between items-center sticky top-0 z-10 shadow-md gap-3">
-                <h1 className="text-xl font-bold text-purple-400 flex items-center gap-2 drop-shadow-md">
-                    <CalendarIcon size={24} /> Kalender NoteNala
-                </h1>
-                <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <a href="/journal" className="flex items-center gap-2 bg-pink-600/90 hover:bg-pink-500 text-white px-4 py-2 rounded-xl transition shadow-lg shadow-pink-500/30 font-medium backdrop-blur-sm flex-1 sm:flex-auto justify-center">
-                        <BookHeart size={18} /> Jurnal
-                    </a>
-                    <a href="/" className="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-xl transition border border-gray-700/50 backdrop-blur-sm shadow-md flex-1 sm:flex-auto justify-center">
-                        <ArrowLeft size={18} /> Catatan Tugas
-                    </a>
+            <nav className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700/50 px-4 md:px-6 py-3 sticky top-0 z-20 shadow-sm pt-[max(env(safe-area-inset-top),0.75rem)] pb-[0.75rem]">
+                <div className="flex items-center gap-3 max-w-5xl mx-auto">
+                  <a href="/" className="p-2 bg-gray-800/80 hover:bg-gray-700 border border-gray-700/50 rounded-xl transition text-gray-300 hover:text-white flex-shrink-0">
+                    <ArrowLeft size={20} />
+                  </a>
+                  <h1 className="text-lg md:text-xl font-bold text-purple-400 flex items-center gap-2">
+                    <CalendarIcon size={21} /> Kalender Misi
+                  </h1>
                 </div>
             </nav>
 
